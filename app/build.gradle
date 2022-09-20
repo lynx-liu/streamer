@@ -1,0 +1,76 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 32
+    buildToolsVersion '30.0.2'
+    defaultConfig {
+        applicationId "com.vrviu.bytestreamer"
+        minSdkVersion 25
+        targetSdkVersion 32
+        versionCode 5
+        versionName "1.0.1"
+    }
+
+    signingConfigs {
+        def platformType = getPlatform()
+        if(platformType.equals("kona")) {
+            release {
+                storeFile file("kona.keystore")
+                storePassword '123456'
+                keyAlias 'platform'
+                keyPassword '123456'
+            }
+
+            debug {
+                storeFile file("kona.keystore")
+                storePassword '123456'
+                keyAlias 'platform'
+                keyPassword '123456'
+            }
+        } else {
+            release {
+                storeFile file("vrviu.keystore")
+                storePassword '123456'
+                keyAlias 'platform'
+                keyPassword '123456'
+            }
+
+            debug {
+                storeFile file("vrviu.keystore")
+                storePassword '123456'
+                keyAlias 'platform'
+                keyPassword '123456'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            minifyEnabled true
+        }
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['libs']
+        }
+    }
+}
+
+def static getPlatform() {
+    def adbCommand = 'adb shell getprop ro.product.name'
+    Process process = adbCommand.execute()
+    process.in.eachLine { processing ->
+        println processing
+        return processing
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+}
