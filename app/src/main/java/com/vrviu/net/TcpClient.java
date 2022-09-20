@@ -25,7 +25,11 @@ public abstract class TcpClient extends Thread {
                 client=new Socket(ip,port);
                 onConnected(client);
             } catch (Exception e) {
-                Log.d("llx",e.toString());
+                try {
+                    sleep(500);
+                } catch (InterruptedException ex) {
+                    break;
+                }
             } finally {
                 if(client!=null) {
                     try {
