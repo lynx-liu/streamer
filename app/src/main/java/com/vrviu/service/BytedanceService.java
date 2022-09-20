@@ -9,7 +9,9 @@ import android.content.Intent;
 import android.os.IBinder;
 
 import com.vrviu.bytestreamer.R;
+import com.vrviu.net.VideoTcpClient;
 import com.vrviu.net.VideoTcpServer;
+import com.vrviu.utils.SystemUtils;
 
 public class BytedanceService extends Service {
     @Override
@@ -24,6 +26,7 @@ public class BytedanceService extends Service {
 			startForeground(1, notification);
 		}
 
+        videoTcpClient.start();
         videoTcpServer.start();
     }
 
@@ -37,6 +40,28 @@ public class BytedanceService extends Service {
         videoTcpServer.interrupt();
         super.onDestroy();
     }
+
+    private VideoTcpClient videoTcpClient = new VideoTcpClient(SystemUtils.getProperty("lsIp","10.0.2.2"),51897) {
+        @Override
+        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
+            return false;
+        }
+
+        @Override
+        public void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl) {
+
+        }
+
+        @Override
+        public void requestIdrFrame() {
+
+        }
+
+        @Override
+        public boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec) {
+            return false;
+        }
+    };
 
     private VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
