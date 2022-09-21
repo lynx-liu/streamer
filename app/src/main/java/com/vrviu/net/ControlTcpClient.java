@@ -1,0 +1,615 @@
+package com.vrviu.net;
+
+import android.content.Context;
+import android.graphics.Point;
+import android.hardware.display.DisplayManager;
+import android.os.SystemClock;
+import android.util.Log;
+import android.util.Size;
+import android.view.Display;
+import android.view.KeyCharacterMap;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.Socket;
+
+import static android.view.KeyEvent.KEYCODE_ALT_LEFT;
+import static android.view.KeyEvent.KEYCODE_ALT_RIGHT;
+import static android.view.KeyEvent.KEYCODE_CTRL_LEFT;
+import static android.view.KeyEvent.KEYCODE_CTRL_RIGHT;
+import static android.view.KeyEvent.KEYCODE_SHIFT_LEFT;
+import static android.view.KeyEvent.KEYCODE_SHIFT_RIGHT;
+import static android.view.KeyEvent.KEYCODE_V;
+import static android.view.KeyEvent.META_ALT_ON;
+import static android.view.KeyEvent.META_CAPS_LOCK_ON;
+import static android.view.KeyEvent.META_CTRL_ON;
+import static android.view.KeyEvent.META_NUM_LOCK_ON;
+import static android.view.KeyEvent.META_SHIFT_ON;
+
+import com.vrviu.utils.ControlUtils;
+import com.vrviu.utils.SystemUtils;
+
+public final class ControlTcpClient extends TcpClient{
+    private final static String TAG = "ControlTcpClient";
+    private static final int InputData = 0x0206;
+    private static final int AdjustEncoderSetting = 0x0401;
+    private static final int PingData = 0x0601;
+    private static final int NotifyType = 0x0801;
+    private static final int BUTTON_LEFT =0x01;
+    private static final int BUTTON_MID =0x02;
+    private static final int BUTTON_RIGHT =0x03;
+    private static final int PACKET_TYPE_MOUSE_BUTTON =0x05;
+    private static final int TOUCH_RELATIVE =0x06;
+    private static final int PACKET_TYPE_MOUSE_MOVE =0x08;
+    private static final int TOUCH_ABSOLUTE =0x09;
+    private static final int PACKET_TYPE_KEYBOARD =0x0A;
+    private static final int PACKET_TYPE_TOUCH=0x23;
+    private static final int PACKET_TYPE_ANDROID_KEY=0x24;
+    private static final int PACKET_TYPE_SENSOR_INFO=0x25;
+    private static final int PACKET_TYPE_ROTATION = 0x26;
+    private static final int PACKET_TYPE_INPUT_STRING=0x28;
+    private static final int PACKET_TYPE_SCENEMODE = 0x2A;
+    private static final int PACKET_TYPE_CLIPBOARD_DATA=0x32;
+    private static final int PACKET_TYPE_MIC_CAMERA=0x34;
+    private static final int PACKET_TYPE_OPEN_URL=0x35;
+    private static final int PACKET_TYPE_OPEN_DOCUMENT=0x36;
+    private static final int PACKET_TYPE_ADJUST_VOLUME=0x46;
+
+    private static final int ACTION_DOWN = 0x08;
+    private static final int ACTION_UP = 0x09;
+    private static final int ACTION_MOVE = 0x0A;
+
+    private static final int KEYCODE_ENTER = 888;
+    private static final int KEYCODE_SCREENSHOT = 999;
+
+    private static final int KEY_DOWN = 0x03;
+    private static final int KEY_UP = 0x04;
+    private static final int MOUSE_WHEEL = 0x0A;
+
+    private static final byte NumState=0x08;
+    private static final byte CapsState=0x10;
+
+    private static final int SENSOR_TYPE_ACCELEROMETER = 1;
+    private static final int SENSOR_TYPE_MAGNETIC_FIELD = 2;
+    private static final int SENSOR_TYPE_GYROSCOPE = 3;
+    private static final int SENSOR_TYPE_GPS = 4;
+    private static final int SENSOR_TYPE_BDS = 5;
+
+    private DataInputStream dataInputStream;
+    private DataOutputStream dataOutputStream;
+
+    private static Point lastPoint = new Point();
+    private static boolean isRightButtonPress=false;
+    private static boolean isLeftButtonPress=false;
+    private static boolean isHoverEnter=false;
+    private static boolean isGameMode = true;
+
+    private static long lastTouchDownTime;
+    private static long lastMouseDownTime;
+
+    private static final int TouchPacketSize=20;
+
+    private boolean altLeft=false;
+    private boolean altRight=false;
+    private boolean shiftLeft=false;
+    private boolean shiftRight=false;
+    private boolean ctrlLeft=false;
+    private boolean ctrlRight=false;
+
+    private static Size screenSize;
+    private DisplayManager displayManager = null;
+    private ControlUtils controlUtils = null;
+
+    public ControlTcpClient(final Context context, final String ip, final int port, boolean isGameMode) {
+        super(ip,port);
+        this.isGameMode = isGameMode;
+
+        controlUtils = new ControlUtils(context);
+        displayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+        Display display = displayManager.getDisplay(0);
+        screenSize = new Size(display.getWidth(),display.getHeight());
+        Log.d("llx","width:"+display.getWidth()+", height:"+display.getHeight()+", orientation:"+display.getRotation());
+    }
+
+    private int getMetaState(int action, int keyCode,byte modifers){
+        switch (keyCode){
+            case KEYCODE_ALT_LEFT:
+                altLeft=action==KeyEvent.ACTION_DOWN?true:false;
+                break;
+            case KEYCODE_ALT_RIGHT:
+                altRight=action==KeyEvent.ACTION_DOWN?true:false;
+                break;
+            case KEYCODE_SHIFT_LEFT:
+                shiftLeft=action==KeyEvent.ACTION_DOWN?true:false;
+                break;
+            case KEYCODE_SHIFT_RIGHT:
+                shiftRight=action==KeyEvent.ACTION_DOWN?true:false;
+                break;
+            case KEYCODE_CTRL_LEFT:
+                ctrlLeft=action==KeyEvent.ACTION_DOWN?true:false;
+                break;
+            case KEYCODE_CTRL_RIGHT:
+                ctrlRight=action==KeyEvent.ACTION_DOWN?true:false;
+                break;
+        }
+
+        int meta=0;
+        if(altLeft)
+            meta|=META_ALT_ON;
+        if(altRight)
+            meta|=META_ALT_ON;
+        if(shiftLeft)
+            meta|=META_SHIFT_ON;
+        if(shiftRight)
+            meta|=META_SHIFT_ON;
+        if(ctrlLeft)
+            meta|=META_CTRL_ON;
+        if(ctrlRight)
+            meta|=META_CTRL_ON;
+
+        if((modifers&NumState)==NumState){
+            meta|=META_NUM_LOCK_ON;
+        }
+
+        if((modifers&CapsState)==CapsState){
+            meta|=META_CAPS_LOCK_ON;
+        }
+        return meta;
+    }
+
+    private boolean validKey(final int key){
+        switch (key) {
+            case KeyEvent.KEYCODE_POWER:
+            case KeyEvent.KEYCODE_EXPLORER:
+            case KeyEvent.KEYCODE_VOLUME_DOWN:
+            case KeyEvent.KEYCODE_VOLUME_UP:
+            case KeyEvent.KEYCODE_VOLUME_MUTE:
+            case KeyEvent.KEYCODE_CALL:
+            case KeyEvent.KEYCODE_ENDCALL:
+            case KeyEvent.KEYCODE_MENU:
+            case KeyEvent.KEYCODE_SEARCH:
+            case KeyEvent.KEYCODE_CAMERA:
+            case KeyEvent.KEYCODE_FOCUS:
+            case KeyEvent.KEYCODE_NOTIFICATION:
+            case KeyEvent.KEYCODE_MUTE:
+            case KeyEvent.KEYCODE_ENVELOPE: {
+                return false;
+            }
+
+            case KeyEvent.KEYCODE_HOME:
+            case KeyEvent.KEYCODE_APP_SWITCH:
+            case KeyEvent.KEYCODE_TAB: {
+                if (!isGameMode)
+                    return true;
+                else return false;
+            }
+
+            default: {
+                return true;
+            }
+        }
+     }
+
+    private boolean onKeyEvent(final byte[] buf, final int action) {
+        int key = ((buf[6] & 0xFF) << 8) | (buf[5] & 0xFF);
+        if(!validKey(key))
+            return true;
+
+        if(key == KEYCODE_ENTER) {
+            String simpleInputMethod_enabled = SystemUtils.getProperty("vrviu.simpleInputMethod.enable", "noget");
+            if (simpleInputMethod_enabled.equals("true")) {
+                key = KeyEvent.KEYCODE_ENTER;
+            } else {
+                return true;
+            }
+        }
+
+        byte modifiers = buf[7];
+        int metaState = getMetaState(action, key, modifiers);
+        return controlUtils.injectKeyEvent(action, key, 0, metaState);
+    }
+
+    private boolean onKeyClick(final int key) {
+        if(!validKey(key))
+            return true;
+
+        switch (key) {
+            case KEYCODE_ENTER: {
+                String simpleInputMethod_enabled = SystemUtils.getProperty("vrviu.simpleInputMethod.enable", "noget");
+                if (simpleInputMethod_enabled.equals("true")) {
+                    return controlUtils.injectKeycode(KeyEvent.KEYCODE_ENTER);
+                } else {
+                    return true;
+                }
+            }
+
+            case KEYCODE_SCREENSHOT:
+                return controlUtils.injectTowKeycode(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_POWER);
+
+            default:
+                return controlUtils.injectKeycode(key);
+        }
+    }
+
+    private boolean onTouch(final byte[] buf) {
+        int buttonIndex = buf[1];
+        int action = buf[2];
+        int absolute = buf[3];
+        int dltX = ((buf[4]&0xFF)<<8)|(buf[5]&0xFF);
+        int dltY = ((buf[6]&0xFF)<<8)|(buf[7]&0xFF);
+
+        int touchType=buttonIndex&0xf0;
+        if(touchType==0x90){
+            return true;//键盘转换的消息,弹出输入框时丢弃
+        }
+
+        switch (action) {
+            case ACTION_DOWN:
+                action = MotionEvent.ACTION_DOWN;
+                lastTouchDownTime= SystemClock.uptimeMillis();
+                break;
+            case ACTION_UP:
+                action = MotionEvent.ACTION_UP;
+                break;
+            case ACTION_MOVE:
+                action = MotionEvent.ACTION_MOVE;
+                break;
+            default:
+                return true;//TOUCH状态错误,丢弃
+        }
+
+        Point point=pointN2L(dltX,dltY);
+        if(absolute== TOUCH_ABSOLUTE){
+            lastPoint.set(point.x,point.y);
+        }else if(absolute== TOUCH_RELATIVE){
+            lastPoint.offset(point.x,point.y);
+        }
+        return controlUtils.injectTouch(action,buttonIndex&0x0f,new Point(lastPoint),1.0f,0);
+    }
+
+    private void onMouseDown(final int button) {
+        switch (button) {
+            case  BUTTON_LEFT: {
+                isLeftButtonPress = true;
+                lastTouchDownTime = SystemClock.uptimeMillis();
+                if (isHoverEnter) {
+                    controlUtils.injectMouse(MotionEvent.ACTION_HOVER_EXIT, lastMouseDownTime, lastTouchDownTime, lastPoint, MotionEvent.BUTTON_PRIMARY);
+                    isHoverEnter = false;
+                }
+                controlUtils.injectTouchForMouse(MotionEvent.ACTION_DOWN, lastTouchDownTime, lastTouchDownTime, lastPoint, MotionEvent.BUTTON_PRIMARY);
+            }
+            break;
+
+            case BUTTON_RIGHT: {
+                isRightButtonPress = true;
+                lastMouseDownTime = SystemClock.uptimeMillis();
+                if (isHoverEnter) {
+                    controlUtils.injectMouse(MotionEvent.ACTION_HOVER_EXIT, lastMouseDownTime, lastMouseDownTime, lastPoint, MotionEvent.BUTTON_SECONDARY);
+                    isHoverEnter = false;
+                }
+                controlUtils.injectMouse(MotionEvent.ACTION_DOWN, lastMouseDownTime, lastMouseDownTime, lastPoint, MotionEvent.BUTTON_SECONDARY);
+                controlUtils.injectMouse(MotionEvent.ACTION_BUTTON_PRESS, lastMouseDownTime, lastMouseDownTime, lastPoint, MotionEvent.BUTTON_SECONDARY);
+            }
+            break;
+
+            case BUTTON_MID:
+            default:
+                break;
+        }
+    }
+
+    private void onMouseUp(final int button) {
+        switch (button) {
+            case BUTTON_LEFT:
+                isLeftButtonPress = false;
+                controlUtils.injectTouchForMouse(MotionEvent.ACTION_UP,lastTouchDownTime,SystemClock.uptimeMillis(),lastPoint,MotionEvent.BUTTON_PRIMARY);
+                break;
+
+            case BUTTON_RIGHT:
+                isRightButtonPress = false;
+                long eventTime = SystemClock.uptimeMillis();
+                controlUtils.injectMouse(MotionEvent.ACTION_BUTTON_RELEASE,lastMouseDownTime,eventTime,lastPoint,0);
+                controlUtils.injectMouse(MotionEvent.ACTION_UP,lastMouseDownTime,eventTime,lastPoint,0);
+                break;
+
+            case BUTTON_MID:
+            default:
+                break;
+        }
+    }
+
+    private boolean onMouseMove(final byte[] buf) {
+        int magic= ((buf[3]&0xFF)<<24)|((buf[2]&0xFF)<<16)|((buf[1]&0xFF)<<8)|(buf[0]&0xFF);
+        int dltX = ((buf[4]&0xFF)<<8)|(buf[5]&0xFF);
+        int dltY = ((buf[6]&0xFF)<<8)|(buf[7]&0xFF);
+        Point point=pointN2L(dltX,dltY);
+
+        if(magic== TOUCH_ABSOLUTE){
+            lastPoint.set(point.x,point.y);
+        }else if(magic== TOUCH_RELATIVE){
+            lastPoint.offset(point.x,point.y);
+        }
+
+        long eventTime = SystemClock.uptimeMillis();
+        if(isRightButtonPress){
+            return controlUtils.injectMouse(MotionEvent.ACTION_MOVE,lastMouseDownTime,eventTime,lastPoint,MotionEvent.BUTTON_SECONDARY);
+        }else if(isLeftButtonPress){
+            return controlUtils.injectTouchForMouse(MotionEvent.ACTION_MOVE,lastTouchDownTime,eventTime,lastPoint,MotionEvent.BUTTON_PRIMARY);
+        }else{
+            if(!isHoverEnter){
+                isHoverEnter=true;
+                controlUtils.injectMouse(MotionEvent.ACTION_HOVER_ENTER,lastMouseDownTime,eventTime,lastPoint,0);
+            }
+            return controlUtils.injectMouse(MotionEvent.ACTION_HOVER_MOVE,lastMouseDownTime,eventTime,lastPoint,0);
+        }
+    }
+
+    private void onSensorInfo(final byte[] buf) {
+        int samplePeriod = ((buf[0]&0xFF)<<8)|(buf[1]&0xFF);
+        int sensorType = buf[2];
+        int len = ((buf[3]&0xFF)<<8)|(buf[4]&0xFF);
+        float data0 = Float.intBitsToFloat(((buf[5]&0xFF)<<24)|((buf[6]&0xFF)<<16)|((buf[7]&0xFF)<<8)|(buf[8]&0xFF));
+        float data1 = Float.intBitsToFloat(((buf[9]&0xFF)<<24)|((buf[10]&0xFF)<<16)|((buf[11]&0xFF)<<8)|(buf[12]&0xFF));
+        float data2 = Float.intBitsToFloat(((buf[13]&0xFF)<<24)|((buf[14]&0xFF)<<16)|((buf[15]&0xFF)<<8)|(buf[16]&0xFF));
+
+        switch (sensorType) {
+            case SENSOR_TYPE_ACCELEROMETER:
+                break;
+
+            case SENSOR_TYPE_MAGNETIC_FIELD:
+                break;
+
+            case SENSOR_TYPE_GYROSCOPE:
+                break;
+
+            case SENSOR_TYPE_GPS:
+            case SENSOR_TYPE_BDS:
+                SystemUtils.setProperty("fake.gps.location",data0+","+data1);
+                break;
+        }
+    }
+
+    private void onKeyBoard(final byte[] buf) {
+        int action = buf[0];
+        switch (action) {
+            case KEY_DOWN:
+                onKeyEvent(buf,KeyEvent.ACTION_DOWN);
+                break;
+
+            case KEY_UP:
+                onKeyEvent(buf,KeyEvent.ACTION_UP);
+                break;
+
+            case MOUSE_WHEEL:
+                int scrollAmt1 = ((short)(((buf[5]&0xFF)<<8)|(buf[4]&0xFF))) / -6000;
+                controlUtils.injectScroll(lastPoint, lastMouseDownTime, SystemClock.uptimeMillis(), scrollAmt1, scrollAmt1);
+                break;
+        }
+    }
+
+    private void onInputData(final byte[] buffer) throws UnsupportedEncodingException {
+        int packetLen= ((buffer[3]&0xFF)<<24)|((buffer[2]&0xFF)<<16)|((buffer[1]&0xFF)<<8)|(buffer[0]&0xFF);//小端
+        int packetType=((buffer[4]&0xFF)<<24)|((buffer[5]&0xFF)<<16)|((buffer[6]&0xFF)<<8)|(buffer[7]&0xFF);
+        packetLen=(buffer.length-8)<packetLen?(buffer.length-8):packetLen;
+        byte[] object = new byte[packetLen];
+        System.arraycopy(buffer, 8, object, 0, object.length);
+
+        switch (packetType) {
+            case PACKET_TYPE_TOUCH:
+                if(packetLen==TouchPacketSize){
+                    long timestamp = ((object[12]&0xFFl)<<56)|((object[13]&0xFFl)<<48)
+                            |((object[14]&0xFFl)<<40)|((object[15]&0xFFl)<<32)
+                            |((object[16]&0xFFl)<<24)|((object[17]&0xFFl)<<16)
+                            |((object[18]&0xFFl)<<8)|(object[19]&0xFFl);
+                }
+                onTouch(object);
+                break;
+
+            case PACKET_TYPE_ANDROID_KEY:
+                int sendKey = ((object[0]&0xFF)<<8)|(object[1]&0xFF);
+                onKeyClick(sendKey);
+                break;
+
+            case PACKET_TYPE_KEYBOARD:
+                onKeyBoard(object);
+                break;
+
+            case PACKET_TYPE_CLIPBOARD_DATA:
+ //               onPaste(new String(object,"utf-8"));
+                break;
+
+            case PACKET_TYPE_SENSOR_INFO:
+                onSensorInfo(object);
+                break;
+
+            case PACKET_TYPE_INPUT_STRING:
+   //             onInputString(object);
+                break;
+
+            case PACKET_TYPE_MOUSE_MOVE:
+                onMouseMove(object);
+                break;
+
+            case PACKET_TYPE_MOUSE_BUTTON:
+                int action = object[0];
+                int button = ((object[1]&0xFF)<<24)|((object[2]&0xFF)<<16)|((object[3]<<8)&0xFF)|(object[4]&0xFF);
+                if(action==ACTION_DOWN){
+                    onMouseDown(button);
+                }else if(action==ACTION_UP){
+                    onMouseUp(button);
+                }
+                break;
+        }
+    }
+
+    private void onAdjustEncoderSetting(final byte[] buffer) {
+        int packetLen= ((buffer[3]&0xFF)<<24)|((buffer[2]&0xFF)<<16)|((buffer[1]&0xFF)<<8)|(buffer[0]&0xFF);//小端
+        int packetType=((buffer[4]&0xFF)<<24)|((buffer[5]&0xFF)<<16)|((buffer[6]&0xFF)<<8)|(buffer[7]&0xFF);
+        packetLen=(buffer.length-8)<packetLen?(buffer.length-8):packetLen;
+        byte[] object = new byte[packetLen];
+        System.arraycopy(buffer, 8, object, 0, object.length);
+
+        switch (packetType){
+            case PACKET_TYPE_ADJUST_VOLUME:
+                byte volum = object[0];
+                int soundLevel=volum*15/100;
+                setMediaVolume(soundLevel);
+                break;
+        }
+    }
+
+    @Override
+    public void onConnected(Socket client) {
+        try {
+            dataInputStream = new DataInputStream(client.getInputStream());
+            dataOutputStream = new DataOutputStream(client.getOutputStream());
+
+            byte[] header = new byte[4];
+            while (true){
+                dataInputStream.readFully(header);
+                int type=((header[1]&0xFF)<<8)|(header[0]&0xFF);
+                int dataLen=((header[3]&0xFF)<<8)|(header[2]&0xFF);
+
+                byte[] buffer = new byte[dataLen];
+                dataInputStream.readFully(buffer,0,dataLen);
+
+                switch (type) {
+                    case PingData:
+                        dataOutputStream.write(SystemUtils.byteMerger(header,buffer));
+                        break;
+
+                    case InputData:
+                        onInputData(buffer);
+                        break;
+
+                    case AdjustEncoderSetting:
+                        onAdjustEncoderSetting(buffer);
+                        break;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG,"loop Exception",e);
+        } finally {
+            try {
+                dataOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            try {
+                dataInputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void setMediaVolume(int soundLevel){
+        String cmd="su root media volume --set "+soundLevel;
+        try {
+            java.lang.Process pro=Runtime.getRuntime().exec(cmd);
+            pro.waitFor();
+        } catch (Exception e) {
+            Log.e(TAG,"runCmd Exception",e);
+        }
+    }
+
+    private KeyEvent[] convertKeyCode(String msg){
+        KeyCharacterMap keyCharacterMap=KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
+        return keyCharacterMap.getEvents(msg.toCharArray());
+    }
+
+    private void sendClipboard(String txt) throws IOException {
+        synchronized (this){
+            if(dataOutputStream==null)
+                return;
+
+            byte txtBytes[] = txt.getBytes("UTF-8");
+            int payloadByteSize = 4+txtBytes.length;
+            byte[] buf = new byte[4+payloadByteSize];
+            buf[0] = NotifyType&0xFF;
+            buf[1] = (NotifyType>>8)&0xFF;
+            buf[2] = (byte) (payloadByteSize&0xFF);
+            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+            buf[4] = (PACKET_TYPE_CLIPBOARD_DATA>>24)&0xFF;
+            buf[5] = (PACKET_TYPE_CLIPBOARD_DATA>>16)&0xFF;
+            buf[6] = (PACKET_TYPE_CLIPBOARD_DATA>>8)&0xFF;
+            buf[7] = PACKET_TYPE_CLIPBOARD_DATA&0xFF;
+            System.arraycopy(txtBytes, 0, buf, 8, txtBytes.length);
+            dataOutputStream.write(buf);
+        }
+        Log.d(TAG,"sendClipboard end threadID:"+Thread.currentThread().getId());
+    }
+
+    private void sendFilePath(String path) throws IOException {
+        synchronized (this){
+            if(dataOutputStream==null)
+                return;
+
+            byte pathBytes[] = path.getBytes("UTF-8");
+            int payloadByteSize = 5+pathBytes.length;
+            byte[] buf = new byte[4+payloadByteSize];
+            buf[0] = NotifyType&0xFF;
+            buf[1] = (NotifyType>>8)&0xFF;
+            buf[2] = (byte) (payloadByteSize&0xFF);
+            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+            buf[4] = (PACKET_TYPE_OPEN_URL>>24)&0xFF;
+            buf[5] = (PACKET_TYPE_OPEN_URL>>16)&0xFF;
+            buf[6] = (PACKET_TYPE_OPEN_URL>>8)&0xFF;
+            buf[7] = PACKET_TYPE_OPEN_URL&0xFF;
+            buf[8] = 0x02;//1:URL, 2:file/path
+            System.arraycopy(pathBytes, 0, buf, 9, pathBytes.length);
+            dataOutputStream.write(buf);
+        }
+        Log.d(TAG,"sendFilePath end threadID:"+Thread.currentThread().getId());
+    }
+
+    private void sendMicCameraState(int mic, int camera) throws IOException {
+        synchronized (this){
+            if(dataOutputStream==null)
+                return;
+
+            int payloadByteSize = 6;
+            byte[] buf = new byte[4+payloadByteSize];
+            buf[0] = NotifyType&0xFF;
+            buf[1] = (NotifyType>>8)&0xFF;
+            buf[2] = (byte) (payloadByteSize&0xFF);
+            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+            buf[4] = (PACKET_TYPE_MIC_CAMERA>>24)&0xFF;
+            buf[5] = (PACKET_TYPE_MIC_CAMERA>>16)&0xFF;
+            buf[6] = (PACKET_TYPE_MIC_CAMERA>>8)&0xFF;
+            buf[7] = PACKET_TYPE_MIC_CAMERA&0xFF;
+            buf[8] = (byte) mic;//0（缺省，关闭）/1（开启）
+            buf[9] = (byte) camera;//0（缺省，关闭）/1（开启）
+            dataOutputStream.write(buf);
+        }
+        Log.d(TAG,"sendMicCameraState end threadID:"+Thread.currentThread().getId());
+    }
+
+    private void sendStartDocuments() throws IOException {
+        synchronized (this){
+            if(dataOutputStream==null)
+                return;
+
+            int payloadByteSize = 4;
+            byte[] buf = new byte[4+payloadByteSize];
+            buf[0] = NotifyType&0xFF;
+            buf[1] = (NotifyType>>8)&0xFF;
+            buf[2] = (byte) (payloadByteSize&0xFF);
+            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+            buf[4] = (PACKET_TYPE_OPEN_DOCUMENT>>24)&0xFF;
+            buf[5] = (PACKET_TYPE_OPEN_DOCUMENT>>16)&0xFF;
+            buf[6] = (PACKET_TYPE_OPEN_DOCUMENT>>8)&0xFF;
+            buf[7] = PACKET_TYPE_OPEN_DOCUMENT&0xFF;
+            dataOutputStream.write(buf);
+        }
+        Log.d(TAG,"sendStartDocuments end threadID:"+Thread.currentThread().getId());
+    }
+
+    private Point pointN2L(int x, int y){
+        return new Point((x*screenSize.getWidth())>>16,(y*screenSize.getHeight())>>16);
+    }
+}

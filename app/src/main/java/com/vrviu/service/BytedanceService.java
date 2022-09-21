@@ -6,14 +6,25 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.IBinder;
 
 import com.vrviu.bytestreamer.R;
+import com.vrviu.net.ControlTcpClient;
 import com.vrviu.net.VideoTcpClient;
 import com.vrviu.net.VideoTcpServer;
 import com.vrviu.utils.SystemUtils;
 
 public class BytedanceService extends Service {
+    private static final String lsIpField = "lsIp";
+    private static final String lsControlPortField = "lsControlPort";
+    private static final String isGameModeField = "isGameMode";
+    private static final String defaultIP = "10.0.2.2";
+    private static final int NOT_IN_GAME = 9998;
+
+    private SharedPreferences preferences = null;
+    private ControlTcpClient controlTcpClient = null;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -26,6 +37,13 @@ public class BytedanceService extends Service {
 			startForeground(1, notification);
 		}
 
+        preferences = getSharedPreferences(getPackageName(),Context.MODE_PRIVATE);
+        String ip = preferences.getString(lsIpField,defaultIP);
+        int port = preferences.getInt(lsControlPortField,5000);
+        boolean isGameMode = preferences.getBoolean(isGameModeField,true);
+        controlTcpClient = new ControlTcpClient(getApplicationContext(),ip,port,isGameMode);
+
+        controlTcpClient.start();
         videoTcpClient.start();
         videoTcpServer.start();
     }
@@ -37,13 +55,23 @@ public class BytedanceService extends Service {
 
     @Override
     public void onDestroy() {
+        controlTcpClient.interrupt();
         videoTcpServer.interrupt();
+        videoTcpClient.interrupt();
         super.onDestroy();
     }
 
-    private VideoTcpClient videoTcpClient = new VideoTcpClient(SystemUtils.getProperty("lsIp","10.0.2.2"),51897) {
+    private VideoTcpClient videoTcpClient = new VideoTcpClient(SystemUtils.getProperty("vrviu.ls.ip_addr",defaultIP),51897) {
         @Override
         public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
+            boolean isGameMode = gameMode!=NOT_IN_GAME;
+            if(preferences!=null) {
+                SharedPreferences.Editor editor = preferences.edit();
+                editor.putString(lsIpField,lsIp);
+                editor.putInt(lsControlPortField,lsControlPort);
+                editor.putBoolean(isGameModeField,isGameMode);
+                editor.commit();
+            }
             return false;
         }
 

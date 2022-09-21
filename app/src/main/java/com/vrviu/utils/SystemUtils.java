@@ -29,6 +29,13 @@ public final class SystemUtils {
         }
     }
 
+    public static byte[] byteMerger(byte[] bt1, byte[] bt2){
+        byte[] bytes = new byte[bt1.length+bt2.length];
+        System.arraycopy(bt1, 0, bytes, 0, bt1.length);
+        System.arraycopy(bt2, 0, bytes, bt1.length, bt2.length);
+        return bytes;
+    }
+
     /**
      * 5.0以上版本
      * 需要使用系统签名,同时需要<uses-permission android:name="android.permission.DUMP"/>或声明系统用户

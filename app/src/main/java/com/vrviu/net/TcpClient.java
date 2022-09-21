@@ -1,13 +1,11 @@
 package com.vrviu.net;
 
-import android.util.Log;
-
 import java.io.IOException;
 import java.net.Socket;
 
 public abstract class TcpClient extends Thread {
-    protected String ip;
-    protected int port;
+    private String ip;
+    private int port;
 
     public TcpClient(String ip, int port){
         this.ip=ip;

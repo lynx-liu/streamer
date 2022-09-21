@@ -1,7 +1,5 @@
 package com.vrviu.net;
 
-import android.util.Log;
-
 import com.vrviu.utils.JsonUtils;
 
 import org.json.JSONObject;
@@ -53,7 +51,6 @@ public abstract class VideoTcpClient extends TcpClient {
     }
 
     private boolean onStartStreaming(final String jsonString) {
-        Log.d("llx",jsonString);
         try {
             JSONObject jsonObject = new JSONObject(jsonString);
             String flowId = JsonUtils.get(jsonObject, "flowId", "");
