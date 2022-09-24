@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.vrviu.bytestreamer"
+    package="com.vrviu.streamer"
     android:sharedUserId="android.uid.system">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -34,12 +34,12 @@
         </activity>
 
         <service
-            android:name="com.vrviu.service.BytedanceService"
+            android:name="com.vrviu.service.StreamerService"
             android:enabled="true"
             android:exported="true"
             android:directBootAware="true">
             <intent-filter>
-                <action android:name="com.vrviu.service.BytedanceService" />
+                <action android:name="com.vrviu.service.StreamerService" />
 
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>

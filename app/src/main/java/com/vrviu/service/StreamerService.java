@@ -9,13 +9,14 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.IBinder;
 
-import com.vrviu.bytestreamer.R;
+import com.vrviu.streamer.BuildConfig;
+import com.vrviu.streamer.R;
 import com.vrviu.net.ControlTcpClient;
 import com.vrviu.net.VideoTcpClient;
 import com.vrviu.net.VideoTcpServer;
 import com.vrviu.utils.SystemUtils;
 
-public class BytedanceService extends Service {
+public class StreamerService extends Service {
     private static final String lsIpField = "lsIp";
     private static final String lsControlPortField = "lsControlPort";
     private static final String isGameModeField = "isGameMode";
@@ -28,6 +29,7 @@ public class BytedanceService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        SystemUtils.setProperty("vrviu.version.streamer", BuildConfig.VERSION_NAME);
 
 		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
 			NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);

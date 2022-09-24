@@ -153,9 +153,11 @@ public abstract class InputModeManager {
     }
 
     public boolean isStartInput() {
-        if ("true".equalsIgnoreCase(SystemUtils.getProperty("vrviu.startInput", "false")))
-            return true;
-        return false;
+        return "true".equalsIgnoreCase(SystemUtils.getProperty("vrviu.startInput", "false"));
+    }
+
+    public boolean isSimpleInputMethodEnable() {
+        return "true".equalsIgnoreCase(SystemUtils.getProperty("vrviu.simpleInputMethod.enable", "false"));
     }
 
     private void checkInputMode(){

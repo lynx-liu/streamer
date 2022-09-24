@@ -9,9 +9,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
-import android.util.Size;
 import android.view.Display;
-import android.view.IRotationWatcher;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -58,7 +56,7 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_SENSOR_INFO=0x25;
     private static final int PACKET_TYPE_ROTATION = 0x26;
     private static final int PACKET_TYPE_INPUT_STRING=0x28;
-    private static final int PACKET_TYPE_SCENEMODE = 0x2A;
+    private static final int PACKET_TYPE_SCENE_MODE = 0x2A;
     private static final int PACKET_TYPE_CLIPBOARD_DATA=0x32;
     private static final int PACKET_TYPE_MIC_CAMERA=0x34;
     private static final int PACKET_TYPE_OPEN_URL=0x35;
@@ -81,6 +79,7 @@ public final class ControlTcpClient extends TcpClient{
 
     private static final byte NumState=0x08;
     private static final byte CapsState=0x10;
+    private static final int TouchPacketSize=20;
 
     private static final int SENSOR_TYPE_ACCELEROMETER = 1;
     private static final int SENSOR_TYPE_MAGNETIC_FIELD = 2;
@@ -91,17 +90,15 @@ public final class ControlTcpClient extends TcpClient{
     private DataInputStream dataInputStream;
     private DataOutputStream dataOutputStream;
 
-    private static Point lastPoint = new Point();
-    private static boolean isRightButtonPress=false;
-    private static boolean isLeftButtonPress=false;
-    private static boolean isHoverEnter=false;
-    private static boolean isGameMode = true;
-    private AtomicLong controlTs = null;
+    private final Point lastPoint = new Point();
+    private boolean isRightButtonPress=false;
+    private boolean isLeftButtonPress=false;
+    private boolean isHoverEnter=false;
+    private final boolean isGameMode;
+    private final AtomicLong controlTs;
 
-    private static long lastTouchDownTime;
-    private static long lastMouseDownTime;
-
-    private static final int TouchPacketSize=20;
+    private long lastTouchDownTime;
+    private long lastMouseDownTime;
 
     private boolean altLeft=false;
     private boolean altRight=false;
@@ -110,41 +107,29 @@ public final class ControlTcpClient extends TcpClient{
     private boolean ctrlLeft=false;
     private boolean ctrlRight=false;
 
-    private static Size screenSize;
-    private DisplayManager displayManager = null;
-    private ClipboardManager clipboardManager = null;
-    private ControlUtils controlUtils = null;
-    private InputModeManager inputModeManager = null;
+    private static final Point screenSize = new Point();
+    private final DisplayManager displayManager;
+    private final ClipboardManager clipboardManager;
+    private final ControlUtils controlUtils;
+    private final InputModeManager inputModeManager;
 
     public ControlTcpClient(final Context context, final String ip, final int port, boolean isGameMode, AtomicLong controlTs) {
         super(ip,port);
         this.isGameMode = isGameMode;
         this.controlTs=controlTs;
 
+        Handler handler = new Handler(context.getMainLooper());
         controlUtils = new ControlUtils(context);
+
         displayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
         Display display = displayManager.getDisplay(0);
-        screenSize = new Size(display.getWidth(),display.getHeight());
-        Log.d("llx","width:"+display.getWidth()+", height:"+display.getHeight()+", orientation:"+display.getRotation());
-
-        SystemUtils.registerRotationWatcher(new IRotationWatcher.Stub() {
-            @Override
-            public void onRotationChanged(int rotation) {
-                Display display = displayManager.getDisplay(0);
-                screenSize = new Size(display.getWidth(),display.getHeight());
-                sendRotationChanged((byte) (screenSize.getWidth()>screenSize.getHeight()?0:1));
-            }
-        });
+        display.getSize(screenSize);
+        displayManager.registerDisplayListener(displayListener,handler);
+        Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation());
 
         clipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboardManager.addPrimaryClipChangedListener(() -> {
-            final String text = getClipboardText();
-            if(text!=null){
-                new Thread(() -> sendClipboard(text)).start();
-            }
-        });
+        clipboardManager.addPrimaryClipChangedListener(onPrimaryClipChangedListener);
 
-        Handler handler = new Handler(context.getMainLooper());
         inputModeManager = new InputModeManager(context,handler) {
             @Override
             public void onInputModeChange(int mode) {
@@ -153,25 +138,59 @@ public final class ControlTcpClient extends TcpClient{
         };
     }
 
-    private int getMetaState(int action, int keyCode,byte modifers){
+    ClipboardManager.OnPrimaryClipChangedListener onPrimaryClipChangedListener = () -> {
+        final String text = getClipboardText();
+        if(text!=null){
+            new Thread(() -> sendClipboard(text)).start();
+        }
+    };
+
+    DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
+        @Override
+        public void onDisplayAdded(int displayId) {
+
+        }
+
+        @Override
+        public void onDisplayRemoved(int displayId) {
+
+        }
+
+        @Override
+        public void onDisplayChanged(int displayId) {
+            Display display = displayManager.getDisplay(displayId);
+            display.getSize(screenSize);
+            new Thread(() -> sendRotationChanged((byte) (screenSize.x>screenSize.y?0:1))).start();
+        }
+    };
+
+    @Override
+    public void interrupt() {
+        inputModeManager.Release();
+        clipboardManager.removePrimaryClipChangedListener(onPrimaryClipChangedListener);
+        displayManager.unregisterDisplayListener(displayListener);
+        super.interrupt();
+    }
+
+    private int getMetaState(int action, int keyCode, byte modifers){
         switch (keyCode){
             case KEYCODE_ALT_LEFT:
-                altLeft=action==KeyEvent.ACTION_DOWN?true:false;
+                altLeft= action == KeyEvent.ACTION_DOWN;
                 break;
             case KEYCODE_ALT_RIGHT:
-                altRight=action==KeyEvent.ACTION_DOWN?true:false;
+                altRight= action == KeyEvent.ACTION_DOWN;
                 break;
             case KEYCODE_SHIFT_LEFT:
-                shiftLeft=action==KeyEvent.ACTION_DOWN?true:false;
+                shiftLeft= action == KeyEvent.ACTION_DOWN;
                 break;
             case KEYCODE_SHIFT_RIGHT:
-                shiftRight=action==KeyEvent.ACTION_DOWN?true:false;
+                shiftRight= action == KeyEvent.ACTION_DOWN;
                 break;
             case KEYCODE_CTRL_LEFT:
-                ctrlLeft=action==KeyEvent.ACTION_DOWN?true:false;
+                ctrlLeft= action == KeyEvent.ACTION_DOWN;
                 break;
             case KEYCODE_CTRL_RIGHT:
-                ctrlRight=action==KeyEvent.ACTION_DOWN?true:false;
+                ctrlRight= action == KeyEvent.ACTION_DOWN;
                 break;
         }
 
@@ -199,7 +218,7 @@ public final class ControlTcpClient extends TcpClient{
         return meta;
     }
 
-    private boolean validKey(final int key){
+    private boolean invalidKey(final int key){
         switch (key) {
             case KeyEvent.KEYCODE_POWER:
             case KeyEvent.KEYCODE_EXPLORER:
@@ -215,31 +234,28 @@ public final class ControlTcpClient extends TcpClient{
             case KeyEvent.KEYCODE_NOTIFICATION:
             case KeyEvent.KEYCODE_MUTE:
             case KeyEvent.KEYCODE_ENVELOPE: {
-                return false;
+                return true;
             }
 
             case KeyEvent.KEYCODE_HOME:
             case KeyEvent.KEYCODE_APP_SWITCH:
             case KeyEvent.KEYCODE_TAB: {
-                if (!isGameMode)
-                    return true;
-                else return false;
+                return isGameMode;
             }
 
             default: {
-                return true;
+                return false;
             }
         }
     }
 
     private boolean onKeyEvent(final byte[] buf, final int action) {
         int key = ((buf[6] & 0xFF) << 8) | (buf[5] & 0xFF);
-        if(!validKey(key))
+        if(invalidKey(key))
             return true;
 
         if(key == KEYCODE_ENTER) {
-            String simpleInputMethod_enabled = SystemUtils.getProperty("vrviu.simpleInputMethod.enable", "noget");
-            if (simpleInputMethod_enabled.equals("true")) {
+            if (inputModeManager.isSimpleInputMethodEnable()) {
                 key = KeyEvent.KEYCODE_ENTER;
             } else {
                 return true;
@@ -252,13 +268,12 @@ public final class ControlTcpClient extends TcpClient{
     }
 
     private boolean onKeyClick(final int key) {
-        if(!validKey(key))
+        if(invalidKey(key))
             return true;
 
         switch (key) {
             case KEYCODE_ENTER: {
-                String simpleInputMethod_enabled = SystemUtils.getProperty("vrviu.simpleInputMethod.enable", "noget");
-                if (simpleInputMethod_enabled.equals("true")) {
+                if (inputModeManager.isSimpleInputMethodEnable()) {
                     return controlUtils.injectKeycode(KeyEvent.KEYCODE_ENTER);
                 } else {
                     return true;
@@ -434,12 +449,12 @@ public final class ControlTcpClient extends TcpClient{
     }
 
     private void onSensorInfo(final byte[] buf) {
-        int samplePeriod = ((buf[0]&0xFF)<<8)|(buf[1]&0xFF);
+//      int samplePeriod = ((buf[0]&0xFF)<<8)|(buf[1]&0xFF);
         int sensorType = buf[2];
-        int len = ((buf[3]&0xFF)<<8)|(buf[4]&0xFF);
+//      int len = ((buf[3]&0xFF)<<8)|(buf[4]&0xFF);
         float data0 = Float.intBitsToFloat(((buf[5]&0xFF)<<24)|((buf[6]&0xFF)<<16)|((buf[7]&0xFF)<<8)|(buf[8]&0xFF));
         float data1 = Float.intBitsToFloat(((buf[9]&0xFF)<<24)|((buf[10]&0xFF)<<16)|((buf[11]&0xFF)<<8)|(buf[12]&0xFF));
-        float data2 = Float.intBitsToFloat(((buf[13]&0xFF)<<24)|((buf[14]&0xFF)<<16)|((buf[15]&0xFF)<<8)|(buf[16]&0xFF));
+//      float data2 = Float.intBitsToFloat(((buf[13]&0xFF)<<24)|((buf[14]&0xFF)<<16)|((buf[15]&0xFF)<<8)|(buf[16]&0xFF));
 
         switch (sensorType) {
             case SENSOR_TYPE_ACCELEROMETER:
@@ -508,17 +523,17 @@ public final class ControlTcpClient extends TcpClient{
     private void onInputData(final byte[] buffer) {
         int packetLen= ((buffer[3]&0xFF)<<24)|((buffer[2]&0xFF)<<16)|((buffer[1]&0xFF)<<8)|(buffer[0]&0xFF);//小端
         int packetType=((buffer[4]&0xFF)<<24)|((buffer[5]&0xFF)<<16)|((buffer[6]&0xFF)<<8)|(buffer[7]&0xFF);
-        packetLen=(buffer.length-8)<packetLen?(buffer.length-8):packetLen;
+        packetLen= Math.min((buffer.length - 8), packetLen);
         byte[] object = new byte[packetLen];
         System.arraycopy(buffer, 8, object, 0, object.length);
 
         switch (packetType) {
             case PACKET_TYPE_TOUCH:
                 if(controlTs!=null && packetLen==TouchPacketSize){
-                    long timestamp = ((object[12]&0xFFl)<<56)|((object[13]&0xFFl)<<48)
-                            |((object[14]&0xFFl)<<40)|((object[15]&0xFFl)<<32)
-                            |((object[16]&0xFFl)<<24)|((object[17]&0xFFl)<<16)
-                            |((object[18]&0xFFl)<<8)|(object[19]&0xFFl);
+                    long timestamp = ((object[12]& 0xFFL)<<56)|((object[13]& 0xFFL)<<48)
+                            |((object[14]&0xFFL)<<40)|((object[15]&0xFFL)<<32)
+                            |((object[16]&0xFFL)<<24)|((object[17]&0xFFL)<<16)
+                            |((object[18]&0xFFL)<<8)|(object[19]&0xFFL);
                     controlTs.set(timestamp);
                 }
                 onTouch(object);
@@ -564,16 +579,14 @@ public final class ControlTcpClient extends TcpClient{
     private void onAdjustEncoderSetting(final byte[] buffer) {
         int packetLen= ((buffer[3]&0xFF)<<24)|((buffer[2]&0xFF)<<16)|((buffer[1]&0xFF)<<8)|(buffer[0]&0xFF);//小端
         int packetType=((buffer[4]&0xFF)<<24)|((buffer[5]&0xFF)<<16)|((buffer[6]&0xFF)<<8)|(buffer[7]&0xFF);
-        packetLen=(buffer.length-8)<packetLen?(buffer.length-8):packetLen;
+        packetLen= Math.min((buffer.length - 8), packetLen);
         byte[] object = new byte[packetLen];
         System.arraycopy(buffer, 8, object, 0, object.length);
 
-        switch (packetType){
-            case PACKET_TYPE_ADJUST_VOLUME:
-                byte volum = object[0];
-                int soundLevel=volum*15/100;
-                setMediaVolume(soundLevel);
-                break;
+        if (packetType == PACKET_TYPE_ADJUST_VOLUME) {
+            byte volume = object[0];
+            int soundLevel = volume * 15 / 100;
+            setMediaVolume(soundLevel);
         }
     }
 
@@ -584,7 +597,7 @@ public final class ControlTcpClient extends TcpClient{
             dataOutputStream = new DataOutputStream(client.getOutputStream());
 
             sendInputModeChanged(inputModeManager.getInputMode());
-            sendRotationChanged((byte) (screenSize.getWidth()>screenSize.getHeight()?0:1));
+            sendRotationChanged((byte) (screenSize.x>screenSize.y?0:1));
 
             byte[] header = new byte[4];
             while (true){
@@ -636,7 +649,7 @@ public final class ControlTcpClient extends TcpClient{
     }
 
     private Point pointN2L(int x, int y){
-        return new Point((x*screenSize.getWidth())>>16,(y*screenSize.getHeight())>>16);
+        return new Point((x*screenSize.x)>>16,(y*screenSize.y)>>16);
     }
 
     private void sendRotationChanged(byte rotation) {
@@ -666,7 +679,7 @@ public final class ControlTcpClient extends TcpClient{
         if(dataOutputStream==null || mode<0)
             return;
 
-        String inputTxt=new String();
+        String inputTxt= "";
         if(mode==InputModeManager.START_INPUT){/*
                 UiAutomationWrapper uiAutomationWrapper = new UiAutomationWrapper();
                 uiAutomationWrapper.connect();
@@ -676,17 +689,17 @@ public final class ControlTcpClient extends TcpClient{
                 uiAutomationWrapper.disconnect();*/
         }
 
-        byte txtBytes[] = inputTxt.getBytes(StandardCharsets.UTF_8);
+        byte[] txtBytes = inputTxt.getBytes(StandardCharsets.UTF_8);
         int payloadByteSize = 5+txtBytes.length;
         byte[] buf = new byte[4+payloadByteSize];
         buf[0] = NotifyType&0xFF;
         buf[1] = (NotifyType>>8)&0xFF;
         buf[2] = (byte) (payloadByteSize&0xFF);
         buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
-        buf[4] = (PACKET_TYPE_SCENEMODE>>24)&0xFF;
-        buf[5] = (PACKET_TYPE_SCENEMODE>>16)&0xFF;
-        buf[6] = (PACKET_TYPE_SCENEMODE>>8)&0xFF;
-        buf[7] = PACKET_TYPE_SCENEMODE&0xFF;
+        buf[4] = (PACKET_TYPE_SCENE_MODE>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_SCENE_MODE>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_SCENE_MODE>>8)&0xFF;
+        buf[7] = PACKET_TYPE_SCENE_MODE&0xFF;
         buf[8] = (byte) mode;
         System.arraycopy(txtBytes, 0, buf, 9, txtBytes.length);
         try {
@@ -706,7 +719,7 @@ public final class ControlTcpClient extends TcpClient{
         if(dataOutputStream==null)
             return;
 
-        byte txtBytes[] = txt.getBytes(StandardCharsets.UTF_8);
+        byte[] txtBytes = txt.getBytes(StandardCharsets.UTF_8);
         int payloadByteSize = 4+txtBytes.length;
         byte[] buf = new byte[4+payloadByteSize];
         buf[0] = NotifyType&0xFF;
@@ -731,7 +744,7 @@ public final class ControlTcpClient extends TcpClient{
             if(dataOutputStream==null)
                 return;
 
-            byte pathBytes[] = path.getBytes(StandardCharsets.UTF_8);
+            byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
             int payloadByteSize = 5+pathBytes.length;
             byte[] buf = new byte[4+payloadByteSize];
             buf[0] = NotifyType&0xFF;

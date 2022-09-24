@@ -4,11 +4,11 @@ android {
     compileSdkVersion 32
     buildToolsVersion '30.0.3'
     defaultConfig {
-        applicationId "com.vrviu.bytestreamer"
+        applicationId "com.vrviu.streamer"
         minSdkVersion 25
         targetSdkVersion 32
         versionCode 5
-        versionName "1.0.2"
+        versionName "1.0.3"
     }
 
     signingConfigs {
