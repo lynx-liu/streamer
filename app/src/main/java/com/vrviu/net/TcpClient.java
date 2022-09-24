@@ -24,7 +24,7 @@ public abstract class TcpClient extends Thread {
                 onConnected(client);
             } catch (Exception e) {
                 try {
-                    wait(500);
+                    sleep(500);
                 } catch (InterruptedException ex) {
                     break;
                 }
