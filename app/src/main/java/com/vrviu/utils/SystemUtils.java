@@ -1,5 +1,11 @@
 package com.vrviu.utils;
 
+import android.app.IActivityController;
+import android.app.IProcessObserver;
+import android.os.IBinder;
+import android.util.Log;
+import android.view.IRotationWatcher;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -24,6 +30,76 @@ public final class SystemUtils {
             Class<?> c = Class.forName("android.os.SystemProperties");
             Method set = c.getMethod("set", String.class, String.class);
             set.invoke(c, key, value );
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static Object getIWindowManager() {
+        try {
+            //加载得到ServiceManager类，然后得到方法getService。
+            Method getServiceMethod = Class.forName("android.os.ServiceManager").getDeclaredMethod("getService", new Class[]{String.class});
+            Object ServiceManager = getServiceMethod.invoke(null, new Object[]{"window"});//通过getServiceMethod得到ServiceManager的实例（隐藏类，所以使用Object）
+            Class<?> cStub = Class.forName("android.view.IWindowManager$Stub");//通过反射的到Stub
+            Method asInterface = cStub.getMethod("asInterface", IBinder.class);//得到Stub类的asInterface 方法
+            return asInterface.invoke(null, ServiceManager);//然后通过类似serviceManager.getIWindowManager的方法获取IWindowManager的实例
+        } catch (Exception e) {
+            Log.d("llx",e.toString());
+        }
+        return null;
+    }
+
+    public static void registerRotationWatcher(IRotationWatcher rotationWatcher) {
+        try {
+            Object iWindowManager = getIWindowManager();
+            try {
+                // display parameter added since this commit:
+                // https://android.googlesource.com/platform/frameworks/base/+/35fa3c26adcb5f6577849fd0df5228b1f67cf2c6%5E%21/#F1
+                iWindowManager.getClass().getMethod("watchRotation", IRotationWatcher.class, int.class).invoke(iWindowManager, rotationWatcher, 0);
+            } catch (NoSuchMethodException e) {
+                // old version
+                iWindowManager.getClass().getMethod("watchRotation", IRotationWatcher.class).invoke(iWindowManager, rotationWatcher);
+            }
+        } catch (Exception e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    public static void setActivityController(IActivityController watcher, boolean imAMonkey) {
+        try {
+            Class<?> cls = Class.forName("android.app.ActivityManagerNative");
+            Object activityManagerNative = cls.getMethod("getDefault").invoke(null);
+            if (activityManagerNative != null) {
+                Method method = cls.getMethod("setActivityController", IActivityController.class, boolean.class);
+                Object[] args = new Object[]{watcher, imAMonkey};
+                method.invoke(activityManagerNative, args);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void registerProcessObserver(IProcessObserver observer) {
+        try{
+            Class<?> cls = Class.forName("android.app.ActivityManagerNative");
+            Object activityManagerNative = cls.getMethod("getDefault").invoke(null);
+            if (activityManagerNative != null) {
+                Method method = cls.getMethod("registerProcessObserver", IProcessObserver.class);
+                method.invoke(activityManagerNative, observer);
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void unregisterProcessObserver(IProcessObserver observer) {
+        try {
+            Class<?> cls = Class.forName("android.app.ActivityManagerNative");
+            Object activityManagerNative = cls.getMethod("getDefault").invoke(null);
+            if (activityManagerNative != null) {
+                Method method = cls.getMethod("unregisterProcessObserver", IProcessObserver.class);
+                method.invoke(activityManagerNative, observer);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

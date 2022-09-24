@@ -41,7 +41,7 @@ public class BytedanceService extends Service {
         String ip = preferences.getString(lsIpField,defaultIP);
         int port = preferences.getInt(lsControlPortField,5000);
         boolean isGameMode = preferences.getBoolean(isGameModeField,true);
-        controlTcpClient = new ControlTcpClient(getApplicationContext(),ip,port,isGameMode);
+        controlTcpClient = new ControlTcpClient(getApplicationContext(),ip,port,isGameMode,null);
 
         controlTcpClient.start();
         videoTcpClient.start();

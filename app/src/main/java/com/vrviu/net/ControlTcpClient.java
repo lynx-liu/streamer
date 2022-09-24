@@ -1,12 +1,17 @@
 package com.vrviu.net;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Point;
 import android.hardware.display.DisplayManager;
+import android.os.Build;
+import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
 import android.util.Size;
 import android.view.Display;
+import android.view.IRotationWatcher;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -14,8 +19,9 @@ import android.view.MotionEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static android.view.KeyEvent.KEYCODE_ALT_LEFT;
 import static android.view.KeyEvent.KEYCODE_ALT_RIGHT;
@@ -30,11 +36,11 @@ import static android.view.KeyEvent.META_CTRL_ON;
 import static android.view.KeyEvent.META_NUM_LOCK_ON;
 import static android.view.KeyEvent.META_SHIFT_ON;
 
+import com.vrviu.manager.InputModeManager;
 import com.vrviu.utils.ControlUtils;
 import com.vrviu.utils.SystemUtils;
 
 public final class ControlTcpClient extends TcpClient{
-    private final static String TAG = "ControlTcpClient";
     private static final int InputData = 0x0206;
     private static final int AdjustEncoderSetting = 0x0401;
     private static final int PingData = 0x0601;
@@ -70,6 +76,9 @@ public final class ControlTcpClient extends TcpClient{
     private static final int KEY_UP = 0x04;
     private static final int MOUSE_WHEEL = 0x0A;
 
+    private static final int APPEND_TEXT = 0x00;
+    private static final int REPLASE_TEXT = 0x01;
+
     private static final byte NumState=0x08;
     private static final byte CapsState=0x10;
 
@@ -87,6 +96,7 @@ public final class ControlTcpClient extends TcpClient{
     private static boolean isLeftButtonPress=false;
     private static boolean isHoverEnter=false;
     private static boolean isGameMode = true;
+    private AtomicLong controlTs = null;
 
     private static long lastTouchDownTime;
     private static long lastMouseDownTime;
@@ -102,17 +112,45 @@ public final class ControlTcpClient extends TcpClient{
 
     private static Size screenSize;
     private DisplayManager displayManager = null;
+    private ClipboardManager clipboardManager = null;
     private ControlUtils controlUtils = null;
+    private InputModeManager inputModeManager = null;
 
-    public ControlTcpClient(final Context context, final String ip, final int port, boolean isGameMode) {
+    public ControlTcpClient(final Context context, final String ip, final int port, boolean isGameMode, AtomicLong controlTs) {
         super(ip,port);
         this.isGameMode = isGameMode;
+        this.controlTs=controlTs;
 
         controlUtils = new ControlUtils(context);
         displayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
         Display display = displayManager.getDisplay(0);
         screenSize = new Size(display.getWidth(),display.getHeight());
         Log.d("llx","width:"+display.getWidth()+", height:"+display.getHeight()+", orientation:"+display.getRotation());
+
+        SystemUtils.registerRotationWatcher(new IRotationWatcher.Stub() {
+            @Override
+            public void onRotationChanged(int rotation) {
+                Display display = displayManager.getDisplay(0);
+                screenSize = new Size(display.getWidth(),display.getHeight());
+                sendRotationChanged((byte) (screenSize.getWidth()>screenSize.getHeight()?0:1));
+            }
+        });
+
+        clipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+        clipboardManager.addPrimaryClipChangedListener(() -> {
+            final String text = getClipboardText();
+            if(text!=null){
+                new Thread(() -> sendClipboard(text)).start();
+            }
+        });
+
+        Handler handler = new Handler(context.getMainLooper());
+        inputModeManager = new InputModeManager(context,handler) {
+            @Override
+            public void onInputModeChange(int mode) {
+                sendInputModeChanged(mode);
+            }
+        };
     }
 
     private int getMetaState(int action, int keyCode,byte modifers){
@@ -192,7 +230,7 @@ public final class ControlTcpClient extends TcpClient{
                 return true;
             }
         }
-     }
+    }
 
     private boolean onKeyEvent(final byte[] buf, final int action) {
         int key = ((buf[6] & 0xFF) << 8) | (buf[5] & 0xFF);
@@ -243,7 +281,7 @@ public final class ControlTcpClient extends TcpClient{
         int dltY = ((buf[6]&0xFF)<<8)|(buf[7]&0xFF);
 
         int touchType=buttonIndex&0xf0;
-        if(touchType==0x90){
+        if(touchType==0x90&&!inputModeManager.isActivityIndex()){
             return true;//键盘转换的消息,弹出输入框时丢弃
         }
 
@@ -348,6 +386,53 @@ public final class ControlTcpClient extends TcpClient{
         }
     }
 
+    public String getClipboardText() {
+        if (clipboardManager == null) {
+            return null;
+        }
+
+        ClipData clipData = clipboardManager.getPrimaryClip();
+        if (clipData == null || clipData.getItemCount() == 0) {
+            return null;
+        }
+
+        CharSequence s = clipData.getItemAt(0).getText();
+        if (s == null) {
+            return null;
+        }
+        return s.toString();
+    }
+
+    public boolean setClipboardText(String text) {
+        if (clipboardManager == null) {
+            return false;
+        }
+
+        String currentClipboard = getClipboardText();
+        if (currentClipboard != null && currentClipboard.equals(text)) {
+            // The clipboard already contains the requested text.
+            // Since pasting text from the computer involves setting the device clipboard, it could be set twice on a copy-paste. This would cause
+            // the clipboard listeners to be notified twice, and that would flood the Android keyboard clipboard history. To workaround this
+            // problem, do not explicitly set the clipboard text if it already contains the expected content.
+            return false;
+        }
+
+        ClipData clipData = ClipData.newPlainText(null, text);
+        clipboardManager.setPrimaryClip(clipData);
+        return true;
+    }
+
+    private boolean onPaste(final String text) {
+        if(!setClipboardText(text))
+            return false;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N)
+            return controlUtils.injectKeycode(KeyEvent.KEYCODE_PASTE);
+
+        return controlUtils.injectKeyEvent(KeyEvent.ACTION_DOWN, KEYCODE_V, 0, META_CTRL_ON)
+                && controlUtils.injectKeyEvent(KeyEvent.ACTION_UP, KEYCODE_V, 0, META_CTRL_ON);
+    }
+
     private void onSensorInfo(final byte[] buf) {
         int samplePeriod = ((buf[0]&0xFF)<<8)|(buf[1]&0xFF);
         int sensorType = buf[2];
@@ -373,7 +458,36 @@ public final class ControlTcpClient extends TcpClient{
         }
     }
 
+    private void onInputString(final byte[] buf) {
+        if(!inputModeManager.isStartInput())
+            return;
+
+        int mode=buf[0];
+        int length=((buf[1]&0xFF)<<8)|(buf[2]&0xFF);
+        String text = new String(buf,3,length, StandardCharsets.UTF_8);
+        if(mode==REPLASE_TEXT){/*
+            UiAutomationWrapper uiAutomationWrapper = new UiAutomationWrapper();
+            uiAutomationWrapper.connect();
+            UiAutomation uiAutomation = uiAutomationWrapper.getUiAutomation();
+            AccessibilityNodeInfo info = uiAutomation.getRootInActiveWindow();
+            if(length>0){
+                Log.d("llx","input string:"+text);
+                AccessibilityNodeInfoDumper.setFocusedWindowText(info, text);
+            }else{
+                AccessibilityNodeInfoDumper.setFocusedWindowText(info, "");
+                Log.e("llx","input string error length:"+length);
+            }
+            uiAutomationWrapper.disconnect();*/
+        }else if(mode==APPEND_TEXT){
+            onPaste(text);
+        }
+    }
+
     private void onKeyBoard(final byte[] buf) {
+        if(inputModeManager.isActivityIndex()){
+            return;
+        }
+
         int action = buf[0];
         switch (action) {
             case KEY_DOWN:
@@ -391,7 +505,7 @@ public final class ControlTcpClient extends TcpClient{
         }
     }
 
-    private void onInputData(final byte[] buffer) throws UnsupportedEncodingException {
+    private void onInputData(final byte[] buffer) {
         int packetLen= ((buffer[3]&0xFF)<<24)|((buffer[2]&0xFF)<<16)|((buffer[1]&0xFF)<<8)|(buffer[0]&0xFF);//小端
         int packetType=((buffer[4]&0xFF)<<24)|((buffer[5]&0xFF)<<16)|((buffer[6]&0xFF)<<8)|(buffer[7]&0xFF);
         packetLen=(buffer.length-8)<packetLen?(buffer.length-8):packetLen;
@@ -400,11 +514,12 @@ public final class ControlTcpClient extends TcpClient{
 
         switch (packetType) {
             case PACKET_TYPE_TOUCH:
-                if(packetLen==TouchPacketSize){
+                if(controlTs!=null && packetLen==TouchPacketSize){
                     long timestamp = ((object[12]&0xFFl)<<56)|((object[13]&0xFFl)<<48)
                             |((object[14]&0xFFl)<<40)|((object[15]&0xFFl)<<32)
                             |((object[16]&0xFFl)<<24)|((object[17]&0xFFl)<<16)
                             |((object[18]&0xFFl)<<8)|(object[19]&0xFFl);
+                    controlTs.set(timestamp);
                 }
                 onTouch(object);
                 break;
@@ -419,7 +534,7 @@ public final class ControlTcpClient extends TcpClient{
                 break;
 
             case PACKET_TYPE_CLIPBOARD_DATA:
- //               onPaste(new String(object,"utf-8"));
+                onPaste(new String(object,StandardCharsets.UTF_8));
                 break;
 
             case PACKET_TYPE_SENSOR_INFO:
@@ -427,7 +542,7 @@ public final class ControlTcpClient extends TcpClient{
                 break;
 
             case PACKET_TYPE_INPUT_STRING:
-   //             onInputString(object);
+                onInputString(object);
                 break;
 
             case PACKET_TYPE_MOUSE_MOVE:
@@ -468,6 +583,9 @@ public final class ControlTcpClient extends TcpClient{
             dataInputStream = new DataInputStream(client.getInputStream());
             dataOutputStream = new DataOutputStream(client.getOutputStream());
 
+            sendInputModeChanged(inputModeManager.getInputMode());
+            sendRotationChanged((byte) (screenSize.getWidth()>screenSize.getHeight()?0:1));
+
             byte[] header = new byte[4];
             while (true){
                 dataInputStream.readFully(header);
@@ -492,7 +610,7 @@ public final class ControlTcpClient extends TcpClient{
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG,"loop Exception",e);
+            Log.e("llx","loop Exception",e);
         } finally {
             try {
                 dataOutputStream.close();
@@ -513,8 +631,70 @@ public final class ControlTcpClient extends TcpClient{
             java.lang.Process pro=Runtime.getRuntime().exec(cmd);
             pro.waitFor();
         } catch (Exception e) {
-            Log.e(TAG,"runCmd Exception",e);
+            Log.e("llx","runCmd Exception",e);
         }
+    }
+
+    private Point pointN2L(int x, int y){
+        return new Point((x*screenSize.getWidth())>>16,(y*screenSize.getHeight())>>16);
+    }
+
+    private void sendRotationChanged(byte rotation) {
+        if(dataOutputStream==null)
+            return;
+
+        int payloadByteSize = 5;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_ROTATION>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_ROTATION>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_ROTATION>>8)&0xFF;
+        buf[7] = PACKET_TYPE_ROTATION&0xFF;
+        buf[8] = rotation;//0横屏，1竖屏
+        try {
+            dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.d("llx","sendRotationChanged:"+rotation+", threadID:"+Thread.currentThread().getId());
+    }
+
+    private void sendInputModeChanged(int mode) {
+        if(dataOutputStream==null || mode<0)
+            return;
+
+        String inputTxt=new String();
+        if(mode==InputModeManager.START_INPUT){/*
+                UiAutomationWrapper uiAutomationWrapper = new UiAutomationWrapper();
+                uiAutomationWrapper.connect();
+                UiAutomation uiAutomation = uiAutomationWrapper.getUiAutomation();
+                AccessibilityNodeInfo info = uiAutomation.getRootInActiveWindow();
+                inputTxt = AccessibilityNodeInfoDumper.getFocusedWindowText(info);
+                uiAutomationWrapper.disconnect();*/
+        }
+
+        byte txtBytes[] = inputTxt.getBytes(StandardCharsets.UTF_8);
+        int payloadByteSize = 5+txtBytes.length;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_SCENEMODE>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_SCENEMODE>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_SCENEMODE>>8)&0xFF;
+        buf[7] = PACKET_TYPE_SCENEMODE&0xFF;
+        buf[8] = (byte) mode;
+        System.arraycopy(txtBytes, 0, buf, 9, txtBytes.length);
+        try {
+            dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.d("llx","sendInputModeChanged:"+mode+", threadID:"+Thread.currentThread().getId());
     }
 
     private KeyEvent[] convertKeyCode(String msg){
@@ -522,26 +702,28 @@ public final class ControlTcpClient extends TcpClient{
         return keyCharacterMap.getEvents(msg.toCharArray());
     }
 
-    private void sendClipboard(String txt) throws IOException {
-        synchronized (this){
-            if(dataOutputStream==null)
-                return;
+    private void sendClipboard(String txt) {
+        if(dataOutputStream==null)
+            return;
 
-            byte txtBytes[] = txt.getBytes("UTF-8");
-            int payloadByteSize = 4+txtBytes.length;
-            byte[] buf = new byte[4+payloadByteSize];
-            buf[0] = NotifyType&0xFF;
-            buf[1] = (NotifyType>>8)&0xFF;
-            buf[2] = (byte) (payloadByteSize&0xFF);
-            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
-            buf[4] = (PACKET_TYPE_CLIPBOARD_DATA>>24)&0xFF;
-            buf[5] = (PACKET_TYPE_CLIPBOARD_DATA>>16)&0xFF;
-            buf[6] = (PACKET_TYPE_CLIPBOARD_DATA>>8)&0xFF;
-            buf[7] = PACKET_TYPE_CLIPBOARD_DATA&0xFF;
-            System.arraycopy(txtBytes, 0, buf, 8, txtBytes.length);
+        byte txtBytes[] = txt.getBytes(StandardCharsets.UTF_8);
+        int payloadByteSize = 4+txtBytes.length;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_CLIPBOARD_DATA>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_CLIPBOARD_DATA>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_CLIPBOARD_DATA>>8)&0xFF;
+        buf[7] = PACKET_TYPE_CLIPBOARD_DATA&0xFF;
+        System.arraycopy(txtBytes, 0, buf, 8, txtBytes.length);
+        try {
             dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-        Log.d(TAG,"sendClipboard end threadID:"+Thread.currentThread().getId());
+        Log.d("llx","sendClipboard end threadID:"+Thread.currentThread().getId());
     }
 
     private void sendFilePath(String path) throws IOException {
@@ -549,7 +731,7 @@ public final class ControlTcpClient extends TcpClient{
             if(dataOutputStream==null)
                 return;
 
-            byte pathBytes[] = path.getBytes("UTF-8");
+            byte pathBytes[] = path.getBytes(StandardCharsets.UTF_8);
             int payloadByteSize = 5+pathBytes.length;
             byte[] buf = new byte[4+payloadByteSize];
             buf[0] = NotifyType&0xFF;
@@ -564,7 +746,7 @@ public final class ControlTcpClient extends TcpClient{
             System.arraycopy(pathBytes, 0, buf, 9, pathBytes.length);
             dataOutputStream.write(buf);
         }
-        Log.d(TAG,"sendFilePath end threadID:"+Thread.currentThread().getId());
+        Log.d("llx","sendFilePath end threadID:"+Thread.currentThread().getId());
     }
 
     private void sendMicCameraState(int mic, int camera) throws IOException {
@@ -586,7 +768,7 @@ public final class ControlTcpClient extends TcpClient{
             buf[9] = (byte) camera;//0（缺省，关闭）/1（开启）
             dataOutputStream.write(buf);
         }
-        Log.d(TAG,"sendMicCameraState end threadID:"+Thread.currentThread().getId());
+        Log.d("llx","sendMicCameraState end threadID:"+Thread.currentThread().getId());
     }
 
     private void sendStartDocuments() throws IOException {
@@ -606,10 +788,6 @@ public final class ControlTcpClient extends TcpClient{
             buf[7] = PACKET_TYPE_OPEN_DOCUMENT&0xFF;
             dataOutputStream.write(buf);
         }
-        Log.d(TAG,"sendStartDocuments end threadID:"+Thread.currentThread().getId());
-    }
-
-    private Point pointN2L(int x, int y){
-        return new Point((x*screenSize.getWidth())>>16,(y*screenSize.getHeight())>>16);
+        Log.d("llx","sendStartDocuments end threadID:"+Thread.currentThread().getId());
     }
 }
