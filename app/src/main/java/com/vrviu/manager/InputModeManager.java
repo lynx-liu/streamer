@@ -6,7 +6,6 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
-import android.os.RemoteException;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -29,13 +28,12 @@ public abstract class InputModeManager {
 
     private static Handler mHandler = null;
     private static ContentResolver contentResolver = null;
-    private static List<String> target_activity_list = new ArrayList<>();
-    private static List<String> special_activity_list = new ArrayList<>();
-    private static List<String> disable_simpleInputMethod_activity_list = new ArrayList<>();
+    private static final List<String> target_activity_list = new ArrayList<>();
+    private static final List<String> special_activity_list = new ArrayList<>();
+    private static final List<String> disable_simpleInputMethod_activity_list = new ArrayList<>();
     private static final String configFile = "/data/.config/inputmode.config";
 
     private static int targetActivityIndex = 0;
-    private static int recentMode = NOT_INPUT;
     private static boolean isPayActivity = false;
 
     private int inputMode=-1;
@@ -43,12 +41,6 @@ public abstract class InputModeManager {
     private long inputTextSetTs =0;
     private int waitCount = MAX_COUNT;
     private final Timer timer = new Timer();
-    private TimerTask timerTask = new TimerTask() {
-        @Override
-        public void run() {
-            checkInputMode();
-        }
-    };
 
     public InputModeManager(Context context, Handler handler) {
         super();
@@ -60,10 +52,16 @@ public abstract class InputModeManager {
         SystemUtils.registerProcessObserver(iProcessObserver);
         SystemUtils.setActivityController(iActivityController,true);
 
+        TimerTask timerTask = new TimerTask() {
+            @Override
+            public void run() {
+                checkInputMode();
+            }
+        };
         timer.schedule(timerTask,1,period);
     }
 
-    private static boolean loadConfig() {
+    private static void loadConfig() {
         try {
             FileReader localFileReader = new FileReader(configFile);
             BufferedReader localBufferedReader = new BufferedReader(localFileReader);
@@ -90,11 +88,9 @@ public abstract class InputModeManager {
                 }
             }
             localBufferedReader.close();
-            return true;
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return false;
     }
 
     public int getInputMode() {
@@ -161,10 +157,9 @@ public abstract class InputModeManager {
     }
 
     private void checkInputMode(){
+        int recentMode = targetActivityIndex;
         if (isStartInput()) {
             recentMode = START_INPUT;
-        } else {
-            recentMode = targetActivityIndex;
         }
 
         if(recentMode != inputMode) {
@@ -201,7 +196,7 @@ public abstract class InputModeManager {
         }
     }
 
-    private static Runnable runnable = new Runnable() {
+    private static final Runnable runnable = new Runnable() {
         @Override
         public void run() {
             String topActivity = SystemUtils.getTopActivity();
@@ -220,54 +215,54 @@ public abstract class InputModeManager {
 
     IActivityController iActivityController = new IActivityController.Stub() {
         @Override
-        public boolean activityStarting(Intent intent, String pkg) throws RemoteException {
+        public boolean activityStarting(Intent intent, String pkg) {
             mHandler.removeCallbacks(runnable);
             mHandler.postDelayed(runnable, delayMillis);
             return true;
         }
 
         @Override
-        public boolean activityResuming(String pkg) throws RemoteException {
+        public boolean activityResuming(String pkg) {
             mHandler.removeCallbacks(runnable);
             mHandler.postDelayed(runnable, delayMillis);
             return true;
         }
 
         @Override
-        public boolean appCrashed(String processName, int pid, String shortMsg, String longMsg, long timeMillis, String stackTrace) throws RemoteException {
+        public boolean appCrashed(String processName, int pid, String shortMsg, String longMsg, long timeMillis, String stackTrace) {
             return true;
         }
 
         @Override
-        public int appEarlyNotResponding(String processName, int pid, String annotation) throws RemoteException {
+        public int appEarlyNotResponding(String processName, int pid, String annotation) {
             return 0;
         }
 
         @Override
-        public int appNotResponding(String processName, int pid, String processStats) throws RemoteException {
+        public int appNotResponding(String processName, int pid, String processStats) {
             return 0;
         }
 
         @Override
-        public int systemNotResponding(String msg) throws RemoteException {
+        public int systemNotResponding(String msg) {
             return 0;
         }
     };
 
     IProcessObserver iProcessObserver = new IProcessObserver.Stub() {
         @Override
-        public void onForegroundActivitiesChanged(int pid, int uid, boolean foregroundActivities) throws RemoteException {
+        public void onForegroundActivitiesChanged(int pid, int uid, boolean foregroundActivities) {
             mHandler.removeCallbacks(runnable);
             mHandler.postDelayed(runnable, delayMillis);
         }
 
         @Override
-        public void onProcessStateChanged(int pid, int uid, int procState) throws RemoteException {
+        public void onProcessStateChanged(int pid, int uid, int procState) {
 
         }
 
         @Override
-        public void onProcessDied(int pid, int uid) throws RemoteException {
+        public void onProcessDied(int pid, int uid) {
             mHandler.removeCallbacks(runnable);
             mHandler.postDelayed(runnable, delayMillis);
         }

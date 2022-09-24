@@ -7,7 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public abstract class TcpServer extends Thread{
-    private int port;
+    private final int port;
     private ServerSocket serverSocket;
     public TcpServer(final int port){
         this.port=port;

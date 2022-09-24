@@ -1,19 +1,19 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 32
+    compileSdkVersion 33
     buildToolsVersion '30.0.3'
     defaultConfig {
         applicationId "com.vrviu.streamer"
         minSdkVersion 25
-        targetSdkVersion 32
+        targetSdkVersion 33
         versionCode 5
         versionName "1.0.3"
     }
 
     signingConfigs {
         def platformType = getPlatform()
-        if(platformType.equals("kona")) {
+        if(platformType == "kona") {
             release {
                 storeFile file("kona.keystore")
                 storePassword '123456'

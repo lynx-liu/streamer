@@ -4,8 +4,8 @@ import java.io.IOException;
 import java.net.Socket;
 
 public abstract class TcpClient extends Thread {
-    private String ip;
-    private int port;
+    private final String ip;
+    private final int port;
 
     public TcpClient(String ip, int port){
         this.ip=ip;
@@ -24,7 +24,7 @@ public abstract class TcpClient extends Thread {
                 onConnected(client);
             } catch (Exception e) {
                 try {
-                    sleep(500);
+                    wait(500);
                 } catch (InterruptedException ex) {
                     break;
                 }

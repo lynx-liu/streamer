@@ -32,22 +32,28 @@ public abstract class VideoTcpClient extends TcpClient {
     public abstract boolean reconfigureEncode(int width,int height,int bitrate,int fps,int frameInterval,int profile,int orientation,int codec);
 
     private final Timer timer = new Timer();
-    private TimerTask timerTask = new TimerTask() {
-        @Override
-        public void run() {
-            if(dataOutputStream!=null) {
-                try {
-                    dataOutputStream.write(heartbeat);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-    };
 
     public VideoTcpClient(String ip, int port){
         super(ip,port);
+        TimerTask timerTask = new TimerTask() {
+            @Override
+            public void run() {
+                if (dataOutputStream != null) {
+                    try {
+                        dataOutputStream.write(heartbeat);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        };
         timer.schedule(timerTask,HEARTBEAT_TIME,HEARTBEAT_TIME);
+    }
+
+    @Override
+    public void interrupt() {
+        timer.cancel();
+        super.interrupt();
     }
 
     private boolean onStartStreaming(final String jsonString) {
@@ -96,7 +102,7 @@ public abstract class VideoTcpClient extends TcpClient {
         return false;
     }
 
-    private final boolean onReconfigureEncode(final byte[] data) {
+    private boolean onReconfigureEncode(final byte[] data) {
         int width = (short) (((data[0]&0xFF)<<8)|(data[1]&0xFF));
         int height = (short) (((data[2]&0xFF)<<8)|(data[3]&0xFF));
         int bitrate = ((data[4]&0xFF)<<24)|((data[5]&0xFF)<<16)|((data[6]&0xFF)<<8)|(data[7]&0xFF);

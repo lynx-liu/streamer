@@ -333,7 +333,7 @@ public final class ControlTcpClient extends TcpClient{
                     controlUtils.injectMouse(MotionEvent.ACTION_HOVER_EXIT, lastMouseDownTime, lastTouchDownTime, lastPoint, MotionEvent.BUTTON_PRIMARY);
                     isHoverEnter = false;
                 }
-                controlUtils.injectTouchForMouse(MotionEvent.ACTION_DOWN, lastTouchDownTime, lastTouchDownTime, lastPoint, MotionEvent.BUTTON_PRIMARY);
+                controlUtils.injectTouchForMouse(MotionEvent.ACTION_DOWN, lastTouchDownTime, lastTouchDownTime, lastPoint);
             }
             break;
 
@@ -359,7 +359,7 @@ public final class ControlTcpClient extends TcpClient{
         switch (button) {
             case BUTTON_LEFT:
                 isLeftButtonPress = false;
-                controlUtils.injectTouchForMouse(MotionEvent.ACTION_UP,lastTouchDownTime,SystemClock.uptimeMillis(),lastPoint,MotionEvent.BUTTON_PRIMARY);
+                controlUtils.injectTouchForMouse(MotionEvent.ACTION_UP,lastTouchDownTime,SystemClock.uptimeMillis(),lastPoint);
                 break;
 
             case BUTTON_RIGHT:
@@ -391,7 +391,7 @@ public final class ControlTcpClient extends TcpClient{
         if(isRightButtonPress){
             return controlUtils.injectMouse(MotionEvent.ACTION_MOVE,lastMouseDownTime,eventTime,lastPoint,MotionEvent.BUTTON_SECONDARY);
         }else if(isLeftButtonPress){
-            return controlUtils.injectTouchForMouse(MotionEvent.ACTION_MOVE,lastTouchDownTime,eventTime,lastPoint,MotionEvent.BUTTON_PRIMARY);
+            return controlUtils.injectTouchForMouse(MotionEvent.ACTION_MOVE,lastTouchDownTime,eventTime,lastPoint);
         }else{
             if(!isHoverEnter){
                 isHoverEnter=true;

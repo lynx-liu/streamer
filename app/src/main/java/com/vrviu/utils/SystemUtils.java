@@ -17,9 +17,8 @@ public final class SystemUtils {
             value = (String)(get.invoke(c, key, defaultValue ));
         } catch (Exception e) {
             e.printStackTrace();
-        }finally {
-            return value;
         }
+        return value;
     }
 
     public static void setProperty(final String key, final String value) {
@@ -106,7 +105,9 @@ public final class SystemUtils {
             e.printStackTrace();
         } finally {
             try {
-                p.getInputStream().close();
+                if(p!=null) {
+                    p.getInputStream().close();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }

@@ -82,10 +82,10 @@ public abstract class VideoTcpServer extends TcpServer {
             while (!isInterrupted()){
                 dataInputStream.readFully(header);
                 int dataLen = ((header[0]&0xFF)<<24)|((header[1]&0xFF)<<16)|((header[2]&0xFF)<<8)|(header[3]&0xFF)-8;
-//                byte version = header[4];
+//              byte version = header[4];
                 byte type = header[5];
-//                int extsize = ((header[6]&0xFF)<<8)|(header[7]&0xFF);
-//                long seqnum = ((header[8]&0xFF)<<24)|((header[9]&0xFF)<<16)|((header[10]&0xFF)<<8)|(header[11]&0xFF);
+//              int extsize = ((header[6]&0xFF)<<8)|(header[7]&0xFF);
+//              long seqnum = ((header[8]&0xFF)<<24)|((header[9]&0xFF)<<16)|((header[10]&0xFF)<<8)|(header[11]&0xFF);
 
                 try {
                     byte[] data = new byte[dataLen];
@@ -117,7 +117,7 @@ public abstract class VideoTcpServer extends TcpServer {
         }
     }
 
-    private final boolean onReconfigureEncode(final byte[] data) {
+    private boolean onReconfigureEncode(final byte[] data) {
         int width = (short) (((data[0]&0xFF)<<8)|(data[1]&0xFF));
         int height = (short) (((data[2]&0xFF)<<8)|(data[3]&0xFF));
         int bitrate = ((data[4]&0xFF)<<24)|((data[5]&0xFF)<<16)|((data[6]&0xFF)<<8)|(data[7]&0xFF);

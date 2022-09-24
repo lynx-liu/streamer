@@ -1,13 +1,14 @@
 package com.vrviu.service;
 
+import android.accessibilityservice.AccessibilityService;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.Service;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
-import android.os.IBinder;
+import android.util.Log;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 
 import com.vrviu.streamer.BuildConfig;
 import com.vrviu.streamer.R;
@@ -16,7 +17,8 @@ import com.vrviu.net.VideoTcpClient;
 import com.vrviu.net.VideoTcpServer;
 import com.vrviu.utils.SystemUtils;
 
-public class StreamerService extends Service {
+public class StreamerService extends AccessibilityService {
+    private static final String EDITTEXT_CLASSNAME = android.widget.EditText.class.getName();
     private static final String lsIpField = "lsIp";
     private static final String lsControlPortField = "lsControlPort";
     private static final String isGameModeField = "isGameMode";
@@ -51,8 +53,51 @@ public class StreamerService extends Service {
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
-        return null;
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+        CharSequence className = event.getClassName();//个别情况,开启讯飞输入法无障碍时会导致className为null
+        if(className!=null && EDITTEXT_CLASSNAME.contentEquals(className)){
+            AccessibilityNodeInfo accessibilityNodeInfo = event.getSource();
+            String text =  getEditTextValue(accessibilityNodeInfo);
+            long time = System.currentTimeMillis();
+
+            switch(event.getEventType()) {
+                case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
+                    Log.d("llx", "time:" + time + ",Edit changed text: " + text);
+                    break;
+
+                case AccessibilityEvent.TYPE_VIEW_CLICKED:
+                    SystemUtils.setProperty("vrviu.inputtext.timeStamp", String.valueOf(time));
+                    Log.d("llx", "time:" + time + ",Edit clicked text: " + text);
+                    break;
+
+                case AccessibilityEvent.TYPE_VIEW_FOCUSED:
+                    SystemUtils.setProperty("vrviu.inputtext.timeStamp", String.valueOf(time));
+                    Log.d("llx", "time:" + time + ",Edit focused text:" + text);
+                    break;
+            }
+        }
+    }
+
+    private String getEditTextValue(AccessibilityNodeInfo node){
+        String text = "";
+        if(node == null || node.isPassword()){
+            return text;
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && node.isShowingHintText())
+            return text;
+
+        CharSequence equenceText = node.getText();
+        if(equenceText != null) {
+            text = String.valueOf(equenceText);
+        }
+
+        return text;
+    }
+
+    @Override
+    public void onInterrupt() {
+
     }
 
     @Override
@@ -63,7 +108,7 @@ public class StreamerService extends Service {
         super.onDestroy();
     }
 
-    private VideoTcpClient videoTcpClient = new VideoTcpClient(SystemUtils.getProperty("vrviu.ls.ip_addr",defaultIP),51897) {
+    private final VideoTcpClient videoTcpClient = new VideoTcpClient(SystemUtils.getProperty("vrviu.ls.ip_addr",defaultIP),51897) {
         @Override
         public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
@@ -72,7 +117,7 @@ public class StreamerService extends Service {
                 editor.putString(lsIpField,lsIp);
                 editor.putInt(lsControlPortField,lsControlPort);
                 editor.putBoolean(isGameModeField,isGameMode);
-                editor.commit();
+                editor.apply();
             }
             return false;
         }
@@ -93,7 +138,7 @@ public class StreamerService extends Service {
         }
     };
 
-    private VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
+    private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
         public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
             return false;

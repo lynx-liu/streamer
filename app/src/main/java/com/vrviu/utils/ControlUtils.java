@@ -21,7 +21,7 @@ public final class ControlUtils  {
 
     private static final int DEVICE_ID_VIRTUAL = -1;
     private long lastTouchDown;
-    private InputManager inputManager = null;
+    private final InputManager inputManager;
     private final PointersState pointersState = new PointersState();
     private final MotionEvent.PointerProperties[] pointerProperties = new MotionEvent.PointerProperties[PointersState.MAX_POINTERS];
     private final MotionEvent.PointerCoords[] pointerCoords = new MotionEvent.PointerCoords[PointersState.MAX_POINTERS];
@@ -74,7 +74,7 @@ public final class ControlUtils  {
         return injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 
-    public boolean injectTouchForMouse(final int action, final long lastDownTime, final long eventTime, final Point point, final int buttons) {
+    public boolean injectTouchForMouse(final int action, final long lastDownTime, final long eventTime, final Point point) {
         MotionEvent.PointerProperties props = pointerProperties[0];
         props.clear();
         props.id = 0;
