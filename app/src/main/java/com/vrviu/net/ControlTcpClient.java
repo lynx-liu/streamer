@@ -1,7 +1,5 @@
 package com.vrviu.net;
 
-import android.app.Instrumentation;
-import android.app.UiAutomation;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
