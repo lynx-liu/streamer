@@ -18,7 +18,6 @@ import com.vrviu.net.VideoTcpServer;
 import com.vrviu.utils.SystemUtils;
 
 public class StreamerService extends AccessibilityService {
-    private static final String EDITTEXT_CLASSNAME = android.widget.EditText.class.getName();
     private static final String lsIpField = "lsIp";
     private static final String lsControlPortField = "lsControlPort";
     private static final String isGameModeField = "isGameMode";
@@ -54,45 +53,8 @@ public class StreamerService extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        CharSequence className = event.getClassName();//个别情况,开启讯飞输入法无障碍时会导致className为null
-        if(className!=null && EDITTEXT_CLASSNAME.contentEquals(className)){
-            AccessibilityNodeInfo accessibilityNodeInfo = event.getSource();
-            String text =  getEditTextValue(accessibilityNodeInfo);
-            long time = System.currentTimeMillis();
-
-            switch(event.getEventType()) {
-                case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
-                    Log.d("llx", "time:" + time + ",Edit changed text: " + text);
-                    break;
-
-                case AccessibilityEvent.TYPE_VIEW_CLICKED:
-                    SystemUtils.setProperty("vrviu.inputtext.timeStamp", String.valueOf(time));
-                    Log.d("llx", "time:" + time + ",Edit clicked text: " + text);
-                    break;
-
-                case AccessibilityEvent.TYPE_VIEW_FOCUSED:
-                    SystemUtils.setProperty("vrviu.inputtext.timeStamp", String.valueOf(time));
-                    Log.d("llx", "time:" + time + ",Edit focused text:" + text);
-                    break;
-            }
-        }
-    }
-
-    private String getEditTextValue(AccessibilityNodeInfo node){
-        String text = "";
-        if(node == null || node.isPassword()){
-            return text;
-        }
-
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && node.isShowingHintText())
-            return text;
-
-        CharSequence equenceText = node.getText();
-        if(equenceText != null) {
-            text = String.valueOf(equenceText);
-        }
-
-        return text;
+        if(controlTcpClient!=null)
+            controlTcpClient.onAccessibility(event.getSource(),event.getEventType());
     }
 
     @Override

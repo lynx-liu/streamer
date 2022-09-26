@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.inputmethod.InputMethodManager;
 
 import com.vrviu.utils.SystemUtils;
 
@@ -16,18 +17,15 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Timer;
-import java.util.TimerTask;
 
 public abstract class InputModeManager {
     private static final int NOT_INPUT = 0x00;
     public static final int START_INPUT = 0xFF;
-    private static final int MAX_COUNT = 5;
     private static final long delayMillis = 50;
-    private static final long period = 50;
 
     private static Handler mHandler = null;
     private static ContentResolver contentResolver = null;
+    private static InputMethodManager inputMethodManager = null;
     private static final List<String> target_activity_list = new ArrayList<>();
     private static final List<String> special_activity_list = new ArrayList<>();
     private static final List<String> disable_simpleInputMethod_activity_list = new ArrayList<>();
@@ -35,12 +33,7 @@ public abstract class InputModeManager {
 
     private static int targetActivityIndex = 0;
     private static boolean isPayActivity = false;
-
     private int inputMode=-1;
-    private long inputModeSetTs =0;
-    private long inputTextSetTs =0;
-    private int waitCount = MAX_COUNT;
-    private final Timer timer = new Timer();
 
     public InputModeManager(Context context, Handler handler) {
         super();
@@ -48,17 +41,10 @@ public abstract class InputModeManager {
 
         mHandler = handler;
         contentResolver = context.getContentResolver();
+        inputMethodManager = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
 
         SystemUtils.registerProcessObserver(iProcessObserver);
         SystemUtils.setActivityController(iActivityController,true);
-
-        TimerTask timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                checkInputMode();
-            }
-        };
-        timer.schedule(timerTask,1,period);
     }
 
     private static void loadConfig() {
@@ -156,43 +142,18 @@ public abstract class InputModeManager {
         return "true".equalsIgnoreCase(SystemUtils.getProperty("vrviu.simpleInputMethod.enable", "false"));
     }
 
-    private void checkInputMode(){
+    public void checkInputMode(){
         int recentMode = targetActivityIndex;
         if (isStartInput()) {
             recentMode = START_INPUT;
         }
 
         if(recentMode != inputMode) {
-            long startInputTime = Long.parseLong(SystemUtils.getProperty("vrviu.startInput.timeStamp", "0"));
+            inputMode = recentMode;
 
-            if (startInputTime != inputModeSetTs) {
-                long inputTextTime = Long.parseLong(SystemUtils.getProperty("vrviu.inputtext.timeStamp", "0"));
-
-                if (recentMode == START_INPUT) {
-                    if (isPayActivity && "1".equals(SystemUtils.getProperty("vrviu.iswebpc", "0"))) {
-                        inputMode = recentMode;
-                        inputModeSetTs = startInputTime;
-                        inputTextSetTs = inputTextTime;
-                        waitCount = MAX_COUNT;
-                        return;
-                    }
-                    if (inputTextTime != inputTextSetTs || waitCount <= 0) {
-                        inputMode = recentMode;
-                        inputModeSetTs = startInputTime;
-                        inputTextSetTs = inputTextTime;
-                        waitCount = MAX_COUNT;
-                        onInputModeChange(inputMode);
-                    } else {
-                        waitCount--;
-                    }
-                } else {
-                    inputMode = recentMode;
-                    inputModeSetTs = startInputTime;
-                    inputTextSetTs = inputTextTime;
-                    waitCount = MAX_COUNT;
-                    onInputModeChange(inputMode);
-                }
-            }
+            if (recentMode == START_INPUT && isPayActivity && "1".equals(SystemUtils.getProperty("vrviu.iswebpc", "0")))
+                return;
+            onInputModeChange(inputMode);
         }
     }
 
@@ -269,7 +230,6 @@ public abstract class InputModeManager {
     };
 
     public void Release() {
-        timer.cancel();
         mHandler.removeCallbacks(runnable);
         SystemUtils.unregisterProcessObserver(iProcessObserver);
         SystemUtils.setActivityController(null,false);

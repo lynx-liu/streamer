@@ -1,5 +1,7 @@
 package com.vrviu.net;
 
+import android.app.Instrumentation;
+import android.app.UiAutomation;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -10,9 +12,10 @@ import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.Display;
-import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -112,6 +115,7 @@ public final class ControlTcpClient extends TcpClient{
     private final ClipboardManager clipboardManager;
     private final ControlUtils controlUtils;
     private final InputModeManager inputModeManager;
+    private AccessibilityNodeInfo accessibilityNodeInfo = null;
 
     public ControlTcpClient(final Context context, final String ip, final int port, boolean isGameMode, AtomicLong controlTs) {
         super(ip,port);
@@ -133,7 +137,7 @@ public final class ControlTcpClient extends TcpClient{
         inputModeManager = new InputModeManager(context,handler) {
             @Override
             public void onInputModeChange(int mode) {
-                sendInputModeChanged(mode);
+                new Thread(() -> sendInputModeChanged(mode)).start();
             }
         };
     }
@@ -480,19 +484,14 @@ public final class ControlTcpClient extends TcpClient{
         int mode=buf[0];
         int length=((buf[1]&0xFF)<<8)|(buf[2]&0xFF);
         String text = new String(buf,3,length, StandardCharsets.UTF_8);
-        if(mode==REPLASE_TEXT){/*
-            UiAutomationWrapper uiAutomationWrapper = new UiAutomationWrapper();
-            uiAutomationWrapper.connect();
-            UiAutomation uiAutomation = uiAutomationWrapper.getUiAutomation();
-            AccessibilityNodeInfo info = uiAutomation.getRootInActiveWindow();
+        if(mode==REPLASE_TEXT && accessibilityNodeInfo!=null){
             if(length>0){
                 Log.d("llx","input string:"+text);
-                AccessibilityNodeInfoDumper.setFocusedWindowText(info, text);
+                accessibilityNodeInfo.setText(text);
             }else{
-                AccessibilityNodeInfoDumper.setFocusedWindowText(info, "");
+                accessibilityNodeInfo.setText("");
                 Log.e("llx","input string error length:"+length);
             }
-            uiAutomationWrapper.disconnect();*/
         }else if(mode==APPEND_TEXT){
             onPaste(text);
         }
@@ -623,7 +622,7 @@ public final class ControlTcpClient extends TcpClient{
                 }
             }
         } catch (Exception e) {
-            Log.e("llx","loop Exception",e);
+            Log.d("llx","loop Exception"+e.toString());
         } finally {
             try {
                 dataOutputStream.close();
@@ -635,6 +634,7 @@ public final class ControlTcpClient extends TcpClient{
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            dataInputStream = null;
         }
     }
 
@@ -680,15 +680,11 @@ public final class ControlTcpClient extends TcpClient{
             return;
 
         String inputTxt= "";
-        if(mode==InputModeManager.START_INPUT){/*
-                UiAutomationWrapper uiAutomationWrapper = new UiAutomationWrapper();
-                uiAutomationWrapper.connect();
-                UiAutomation uiAutomation = uiAutomationWrapper.getUiAutomation();
-                AccessibilityNodeInfo info = uiAutomation.getRootInActiveWindow();
-                inputTxt = AccessibilityNodeInfoDumper.getFocusedWindowText(info);
-                uiAutomationWrapper.disconnect();*/
+        if(mode==InputModeManager.START_INPUT && accessibilityNodeInfo!=null){
+            inputTxt = getEditTextValue(accessibilityNodeInfo);
         }
 
+        if(inputTxt==null) inputTxt = "";
         byte[] txtBytes = inputTxt.getBytes(StandardCharsets.UTF_8);
         int payloadByteSize = 5+txtBytes.length;
         byte[] buf = new byte[4+payloadByteSize];
@@ -707,12 +703,7 @@ public final class ControlTcpClient extends TcpClient{
         } catch (IOException e) {
             e.printStackTrace();
         }
-        Log.d("llx","sendInputModeChanged:"+mode+", threadID:"+Thread.currentThread().getId());
-    }
-
-    private KeyEvent[] convertKeyCode(String msg){
-        KeyCharacterMap keyCharacterMap=KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
-        return keyCharacterMap.getEvents(msg.toCharArray());
+        Log.d("llx","sendInputModeChanged:"+mode+", text:"+inputTxt+", threadID:"+Thread.currentThread().getId());
     }
 
     private void sendClipboard(String txt) {
@@ -802,5 +793,38 @@ public final class ControlTcpClient extends TcpClient{
             dataOutputStream.write(buf);
         }
         Log.d("llx","sendStartDocuments end threadID:"+Thread.currentThread().getId());
+    }
+
+    public void onAccessibility(AccessibilityNodeInfo nodeInfo, int eventType) {
+        switch (eventType) {
+            case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
+                if(inputModeManager!=null)
+                    inputModeManager.checkInputMode();
+                break;
+
+            case AccessibilityEvent.TYPE_VIEW_CLICKED:
+            case AccessibilityEvent.TYPE_VIEW_FOCUSED:
+                accessibilityNodeInfo = nodeInfo;
+                if(inputModeManager!=null)
+                    inputModeManager.checkInputMode();
+                break;
+        }
+    }
+
+    private String getEditTextValue(AccessibilityNodeInfo node){
+        String text = "";
+        if(node == null || node.isPassword()){
+            return text;
+        }
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O && node.isShowingHintText())
+            return text;
+
+        CharSequence equenceText = node.getText();
+        if(equenceText != null) {
+            text = String.valueOf(equenceText);
+        }
+
+        return text;
     }
 }
