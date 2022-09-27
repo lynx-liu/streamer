@@ -16,8 +16,14 @@ public abstract class VideoTcpClient extends TcpClient {
     private static final int stopStreaming = 0x02;
     private static final int requestIdrFrame = 0x03;
     private static final int reconfigureEncode = 0x04;
-    private static final int HEARTBEAT_TIME = 5000;
-    private static final byte[] heartbeat = new byte[]{0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+    private static final byte RESPONSE = (byte) 0xFF;
+    private static final byte VERSION = 0x11;//协议版本
+    private static final byte SUCCEEDED = 0x01;//执行成功
+    private static final byte FAILED = 0x00;//执行失败
+    private static final byte UNSUPPORT = (byte) 0xFE;//不支持的类型
+    private static final byte ERROR = (byte) 0xFF;//版本错误
+    private static final int HEARTBEAT_TIME = 10_000;
+    private static final byte[] heartbeat = new byte[]{0x00,0x00,0x00,0x08,VERSION,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
     private static DataOutputStream dataOutputStream = null;
 
     public abstract boolean startStreaming(String flowId,  String lsIp, boolean tcp,
@@ -114,6 +120,26 @@ public abstract class VideoTcpClient extends TcpClient {
         return reconfigureEncode(width,height,bitrate,fps,frameInterval,profile,orientation,codec);
     }
 
+    private void response(final byte type, final int seqnum, final byte result) {
+        byte[] response = new byte[]{
+                0x00,0x00,0x00,0x0A,
+                VERSION,RESPONSE,0x00,0x00,
+                (byte) ((seqnum>>24)&0xFF),
+                (byte) ((seqnum>>16)&0xFF),
+                (byte) ((seqnum>>8)&0xFF),
+                (byte) (seqnum&0xFF),
+                type,result
+        };
+
+        if(dataOutputStream!=null) {
+            try {
+                dataOutputStream.write(response);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     @Override
     public void onConnected(Socket client) {
         try {
@@ -123,25 +149,30 @@ public abstract class VideoTcpClient extends TcpClient {
             byte[] header = new byte[12];
             while (!isInterrupted()){
                 dataInputStream.readFully(header);
+
                 int dataLen = ((header[0]&0xFF)<<24)|((header[1]&0xFF)<<16)|((header[2]&0xFF)<<8)|(header[3]&0xFF)-8;
                 byte version = header[4];
-                switch(version) {
-                    case 0x11: {
-                        byte type = header[5];
-//                      int extsize = ((header[6]&0xFF)<<8)|(header[7]&0xFF);
-//                      long seqnum = ((header[8]&0xFF)<<24)|((header[9]&0xFF)<<16)|((header[10]&0xFF)<<8)|(header[11]&0xFF);
+                byte type = header[5];
+//              int extsize = ((header[6]&0xFF)<<8)|(header[7]&0xFF);
+                int seqnum = ((header[8]&0xFF)<<24)|((header[9]&0xFF)<<16)|((header[10]&0xFF)<<8)|(header[11]&0xFF);
 
+                switch(version) {
+                    case VERSION: {
                         try {
                             byte[] data = new byte[dataLen];
                             dataInputStream.readFully(data, 0, dataLen);
 
                             switch (type) {
-                                case startStreaming:
-                                    onStartStreaming(new String(data));
+                                case startStreaming: {
+                                    boolean result = onStartStreaming(new String(data));
+                                    response(type, seqnum, result?SUCCEEDED:FAILED);
+                                }
                                     break;
 
-                                case stopStreaming:
-                                    onStopStreaming(new String(data));
+                                case stopStreaming: {
+                                    boolean result = onStopStreaming(new String(data));
+                                    response(type,seqnum, result?SUCCEEDED:FAILED);
+                                }
                                     break;
 
                                 case requestIdrFrame:
@@ -151,12 +182,18 @@ public abstract class VideoTcpClient extends TcpClient {
                                 case reconfigureEncode:
                                     onReconfigureEncode(data);
                                     break;
+
+                                default:
+                                    response(type,seqnum, UNSUPPORT);
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
                     }
                     break;
+
+                    default:
+                        response(type,seqnum, ERROR);
                 }
             }
             dataInputStream.close();

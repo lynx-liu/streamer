@@ -6,7 +6,6 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 
 import com.vrviu.streamer.BuildConfig;
