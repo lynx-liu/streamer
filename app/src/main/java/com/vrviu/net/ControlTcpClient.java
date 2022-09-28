@@ -3,9 +3,15 @@ package com.vrviu.net;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Point;
+import android.hardware.camera2.CameraManager;
 import android.hardware.display.DisplayManager;
+import android.media.AudioManager;
+import android.media.AudioRecordingConfiguration;
+import android.net.Uri;
 import android.os.Build;
+import android.os.FileObserver;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
@@ -17,11 +23,14 @@ import android.view.accessibility.AccessibilityNodeInfo;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static android.os.FileObserver.CLOSE_WRITE;
 import static android.view.KeyEvent.KEYCODE_ALT_LEFT;
 import static android.view.KeyEvent.KEYCODE_ALT_RIGHT;
 import static android.view.KeyEvent.KEYCODE_CTRL_LEFT;
@@ -108,14 +117,20 @@ public final class ControlTcpClient extends TcpClient{
     private boolean ctrlLeft=false;
     private boolean ctrlRight=false;
 
+    private static boolean isMicOn = false;
+    private static boolean isCameraOn =false;
+
     private static final Point screenSize = new Point();
     private final DisplayManager displayManager;
     private final ClipboardManager clipboardManager;
+    private final AudioManager audioManager;
+    private final CameraManager cameraManager;
+    private FileObserver fileObserver;
     private final ControlUtils controlUtils;
     private final InputModeManager inputModeManager;
     private AccessibilityNodeInfo accessibilityNodeInfo = null;
 
-    public ControlTcpClient(final Context context, final String ip, final int port, boolean isGameMode, AtomicLong controlTs) {
+    public ControlTcpClient(final Context context, final String ip, final int port, final boolean isGameMode, final String downloadDir, final String packageName, AtomicLong controlTs) {
         super(ip,port);
         this.isGameMode = isGameMode;
         this.controlTs=controlTs;
@@ -132,13 +147,90 @@ public final class ControlTcpClient extends TcpClient{
         clipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
         clipboardManager.addPrimaryClipChangedListener(onPrimaryClipChangedListener);
 
+        audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        isMicOn = audioManager.getMode() == AudioManager.MODE_IN_COMMUNICATION;
+        audioManager.registerAudioRecordingCallback(audioRecordingCallback, handler);
+
+        cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+        cameraManager.registerAvailabilityCallback(availabilityCallback, handler);
+
+        MonitorFiles(context,downloadDir,packageName);
+
         inputModeManager = new InputModeManager(context,handler) {
             @Override
             public void onInputModeChange(int mode) {
                 new Thread(() -> sendInputModeChanged(mode)).start();
             }
+
+            @Override
+            public void onStartDocuments() {
+                new Thread(() -> sendStartDocuments()).start();
+            }
         };
     }
+
+    private boolean MonitorFiles(final Context context, final String downloadDir, final String packageName) {
+        if(downloadDir==null || downloadDir.isEmpty())
+            return false;
+
+        File file = new File(downloadDir);
+        if (!file.exists()) {
+            Log.d("llx", "mkdir:" + downloadDir);
+            file.mkdirs();
+        }
+
+        fileObserver = new FileObserver(file.getPath(), CLOSE_WRITE) {
+            @Override
+            public void onEvent(int event, String filename) {
+                if (SystemUtils.isTopPackage(packageName)) {
+                    new Thread(() -> sendFilePath(filename)).start();
+                } else {
+                    Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                    intent.setData(Uri.fromFile(new File(file, filename)));
+                    context.sendBroadcast(intent);
+                    Log.d("llx", "refresh picture:" + filename);
+                }
+            }
+        };
+
+        fileObserver.startWatching();
+        return true;
+    }
+
+    CameraManager.AvailabilityCallback availabilityCallback = new CameraManager.AvailabilityCallback() {
+        @Override
+        public void onCameraAvailable(String cameraId) {
+            super.onCameraAvailable(cameraId);
+            isCameraOn = false;
+
+            Log.d("llx","camera is "+isCameraOn);
+            new Thread(() -> sendMicCameraState(isMicOn?1:0, isCameraOn?1:0)).start();
+        }
+
+        @Override
+        public void onCameraUnavailable(String cameraId) {
+            super.onCameraUnavailable(cameraId);
+            isCameraOn = true;
+
+            Log.d("llx","camera is "+isCameraOn);
+            new Thread(() -> sendMicCameraState(isMicOn?1:0, isCameraOn?1:0)).start();
+        }
+    };
+
+    AudioManager.AudioRecordingCallback audioRecordingCallback = new AudioManager.AudioRecordingCallback() {
+        @Override
+        public void onRecordingConfigChanged(List<AudioRecordingConfiguration> configs) {
+            super.onRecordingConfigChanged(configs);
+            try {
+                isMicOn = configs.get(0) != null;
+            } catch (Exception e) {
+                isMicOn = false;
+            }
+
+            Log.d("llx","microphone is "+isMicOn);
+            new Thread(() -> sendMicCameraState(isMicOn?1:0, isCameraOn?1:0)).start();
+        }
+    };
 
     ClipboardManager.OnPrimaryClipChangedListener onPrimaryClipChangedListener = () -> {
         final String text = getClipboardText();
@@ -169,6 +261,9 @@ public final class ControlTcpClient extends TcpClient{
     @Override
     public void interrupt() {
         inputModeManager.Release();
+        if(fileObserver!=null) fileObserver.stopWatching();
+        audioManager.unregisterAudioRecordingCallback(audioRecordingCallback);
+        cameraManager.unregisterAvailabilityCallback(availabilityCallback);
         clipboardManager.removePrimaryClipChangedListener(onPrimaryClipChangedListener);
         displayManager.unregisterDisplayListener(displayListener);
         super.interrupt();
@@ -620,7 +715,7 @@ public final class ControlTcpClient extends TcpClient{
                 }
             }
         } catch (Exception e) {
-            Log.d("llx","loop Exception"+e.toString());
+            Log.d("llx","loop Exception"+ e);
         } finally {
             try {
                 dataOutputStream.close();
@@ -728,67 +823,73 @@ public final class ControlTcpClient extends TcpClient{
         Log.d("llx","sendClipboard end threadID:"+Thread.currentThread().getId());
     }
 
-    private void sendFilePath(String path) throws IOException {
-        synchronized (this){
-            if(dataOutputStream==null)
-                return;
+    private void sendFilePath(String path) {
+        if(dataOutputStream==null)
+            return;
 
-            byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
-            int payloadByteSize = 5+pathBytes.length;
-            byte[] buf = new byte[4+payloadByteSize];
-            buf[0] = NotifyType&0xFF;
-            buf[1] = (NotifyType>>8)&0xFF;
-            buf[2] = (byte) (payloadByteSize&0xFF);
-            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
-            buf[4] = (PACKET_TYPE_OPEN_URL>>24)&0xFF;
-            buf[5] = (PACKET_TYPE_OPEN_URL>>16)&0xFF;
-            buf[6] = (PACKET_TYPE_OPEN_URL>>8)&0xFF;
-            buf[7] = PACKET_TYPE_OPEN_URL&0xFF;
-            buf[8] = 0x02;//1:URL, 2:file/path
-            System.arraycopy(pathBytes, 0, buf, 9, pathBytes.length);
+        byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
+        int payloadByteSize = 5+pathBytes.length;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_OPEN_URL>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_OPEN_URL>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_OPEN_URL>>8)&0xFF;
+        buf[7] = PACKET_TYPE_OPEN_URL&0xFF;
+        buf[8] = 0x02;//1:URL, 2:file/path
+        System.arraycopy(pathBytes, 0, buf, 9, pathBytes.length);
+        try {
             dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         Log.d("llx","sendFilePath end threadID:"+Thread.currentThread().getId());
     }
 
-    private void sendMicCameraState(int mic, int camera) throws IOException {
-        synchronized (this){
-            if(dataOutputStream==null)
-                return;
+    private void sendMicCameraState(int mic, int camera) {
+        if(dataOutputStream==null)
+            return;
 
-            int payloadByteSize = 6;
-            byte[] buf = new byte[4+payloadByteSize];
-            buf[0] = NotifyType&0xFF;
-            buf[1] = (NotifyType>>8)&0xFF;
-            buf[2] = (byte) (payloadByteSize&0xFF);
-            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
-            buf[4] = (PACKET_TYPE_MIC_CAMERA>>24)&0xFF;
-            buf[5] = (PACKET_TYPE_MIC_CAMERA>>16)&0xFF;
-            buf[6] = (PACKET_TYPE_MIC_CAMERA>>8)&0xFF;
-            buf[7] = PACKET_TYPE_MIC_CAMERA&0xFF;
-            buf[8] = (byte) mic;//0（缺省，关闭）/1（开启）
-            buf[9] = (byte) camera;//0（缺省，关闭）/1（开启）
+        int payloadByteSize = 6;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_MIC_CAMERA>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_MIC_CAMERA>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_MIC_CAMERA>>8)&0xFF;
+        buf[7] = PACKET_TYPE_MIC_CAMERA&0xFF;
+        buf[8] = (byte) mic;//0（缺省，关闭）/1（开启）
+        buf[9] = (byte) camera;//0（缺省，关闭）/1（开启）
+        try {
             dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         Log.d("llx","sendMicCameraState end threadID:"+Thread.currentThread().getId());
     }
 
-    private void sendStartDocuments() throws IOException {
-        synchronized (this){
-            if(dataOutputStream==null)
-                return;
+    private void sendStartDocuments() {
+        if(dataOutputStream==null)
+            return;
 
-            int payloadByteSize = 4;
-            byte[] buf = new byte[4+payloadByteSize];
-            buf[0] = NotifyType&0xFF;
-            buf[1] = (NotifyType>>8)&0xFF;
-            buf[2] = (byte) (payloadByteSize&0xFF);
-            buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
-            buf[4] = (PACKET_TYPE_OPEN_DOCUMENT>>24)&0xFF;
-            buf[5] = (PACKET_TYPE_OPEN_DOCUMENT>>16)&0xFF;
-            buf[6] = (PACKET_TYPE_OPEN_DOCUMENT>>8)&0xFF;
-            buf[7] = PACKET_TYPE_OPEN_DOCUMENT&0xFF;
+        int payloadByteSize = 4;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_OPEN_DOCUMENT>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_OPEN_DOCUMENT>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_OPEN_DOCUMENT>>8)&0xFF;
+        buf[7] = PACKET_TYPE_OPEN_DOCUMENT&0xFF;
+        try {
             dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         Log.d("llx","sendStartDocuments end threadID:"+Thread.currentThread().getId());
     }

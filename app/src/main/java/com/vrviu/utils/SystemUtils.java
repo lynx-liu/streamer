@@ -2,6 +2,7 @@ package com.vrviu.utils;
 
 import android.app.IActivityController;
 import android.app.IProcessObserver;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -113,5 +114,18 @@ public final class SystemUtils {
             }
         }
         return info;
+    }
+
+    public static boolean isTopPackage(String packageName) {
+        if(packageName!=null && !packageName.isEmpty()) {
+            String topActivity = SystemUtils.getTopActivity();
+            if (topActivity == null) {
+                Log.d("llx", "topActivity is null");
+            } else {
+                Log.d("llx", "topActivity: " + topActivity);
+                return topActivity.contains(packageName);
+            }
+        }
+        return false;
     }
 }

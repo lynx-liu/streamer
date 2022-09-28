@@ -45,6 +45,8 @@ public abstract class InputModeManager {
 
         SystemUtils.registerProcessObserver(iProcessObserver);
         SystemUtils.setActivityController(iActivityController,true);
+
+        checkInputMode();
     }
 
     private static void loadConfig() {
@@ -88,6 +90,7 @@ public abstract class InputModeManager {
     }
 
     public abstract void onInputModeChange(int mode);
+    public abstract void onStartDocuments();
 
     private static int getTargetActivityIndex(String activity) {
         int index = 0;
@@ -179,6 +182,17 @@ public abstract class InputModeManager {
         public boolean activityStarting(Intent intent, String pkg) {
             mHandler.removeCallbacks(runnable);
             mHandler.postDelayed(runnable, delayMillis);
+            String action = intent.getAction();
+            if(action!=null) {
+                switch (action) {
+                    case Intent.ACTION_GET_CONTENT:
+                    case Intent.ACTION_PICK:
+                    case Intent.ACTION_CHOOSER:
+                        Log.d("llx", action);
+                        onStartDocuments();
+                        break;
+                }
+            }
             return true;
         }
 

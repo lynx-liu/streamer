@@ -19,6 +19,8 @@ public class StreamerService extends AccessibilityService {
     private static final String lsIpField = "lsIp";
     private static final String lsControlPortField = "lsControlPort";
     private static final String isGameModeField = "isGameMode";
+    private static final String downloadDirField = "downloadDir";
+    private static final String packageNameField = "packageName";
     private static final String defaultIP = "10.0.2.2";
     private static final int NOT_IN_GAME = 9998;
 
@@ -42,7 +44,9 @@ public class StreamerService extends AccessibilityService {
         String ip = preferences.getString(lsIpField,defaultIP);
         int port = preferences.getInt(lsControlPortField,5000);
         boolean isGameMode = preferences.getBoolean(isGameModeField,true);
-        controlTcpClient = new ControlTcpClient(getApplicationContext(),ip,port,isGameMode,null);
+        String downloadDir = preferences.getString(downloadDirField, null);
+        String packageName = preferences.getString(packageNameField, null);
+        controlTcpClient = new ControlTcpClient(getApplicationContext(),ip,port,isGameMode,downloadDir,packageName,null);
 
         controlTcpClient.start();
         videoTcpClient.start();
@@ -77,6 +81,8 @@ public class StreamerService extends AccessibilityService {
                 editor.putString(lsIpField,lsIp);
                 editor.putInt(lsControlPortField,lsControlPort);
                 editor.putBoolean(isGameModeField,isGameMode);
+                editor.putString(downloadDirField,downloadDir);
+                editor.putString(packageNameField,packageName);
                 editor.apply();
             }
             return false;
