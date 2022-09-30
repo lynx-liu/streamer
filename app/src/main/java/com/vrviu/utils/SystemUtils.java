@@ -2,6 +2,7 @@ package com.vrviu.utils;
 
 import android.app.IActivityController;
 import android.app.IProcessObserver;
+import android.os.IInterface;
 import android.util.Log;
 
 import java.io.BufferedReader;
@@ -35,11 +36,11 @@ public final class SystemUtils {
     public static void setActivityController(IActivityController watcher, boolean imAMonkey) {
         try {
             Class<?> cls = Class.forName("android.app.ActivityManagerNative");
-            Object activityManagerNative = cls.getMethod("getDefault").invoke(null);
-            if (activityManagerNative != null) {
-                Method method = cls.getMethod("setActivityController", IActivityController.class, boolean.class);
+            IInterface iInterface = (IInterface) cls.getMethod("getDefault").invoke(null);
+            if (iInterface != null) {
+                Method method = iInterface.getClass().getMethod("setActivityController", IActivityController.class, boolean.class);
                 Object[] args = new Object[]{watcher, imAMonkey};
-                method.invoke(activityManagerNative, args);
+                method.invoke(iInterface, args);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -49,10 +50,10 @@ public final class SystemUtils {
     public static void registerProcessObserver(IProcessObserver observer) {
         try{
             Class<?> cls = Class.forName("android.app.ActivityManagerNative");
-            Object activityManagerNative = cls.getMethod("getDefault").invoke(null);
-            if (activityManagerNative != null) {
-                Method method = cls.getMethod("registerProcessObserver", IProcessObserver.class);
-                method.invoke(activityManagerNative, observer);
+            IInterface iInterface = (IInterface) cls.getMethod("getDefault").invoke(null);
+            if (iInterface != null) {
+                Method method = iInterface.getClass().getMethod("registerProcessObserver", IProcessObserver.class);
+                method.invoke(iInterface, observer);
             }
         } catch(Exception e) {
             e.printStackTrace();
@@ -62,10 +63,10 @@ public final class SystemUtils {
     public static void unregisterProcessObserver(IProcessObserver observer) {
         try {
             Class<?> cls = Class.forName("android.app.ActivityManagerNative");
-            Object activityManagerNative = cls.getMethod("getDefault").invoke(null);
-            if (activityManagerNative != null) {
-                Method method = cls.getMethod("unregisterProcessObserver", IProcessObserver.class);
-                method.invoke(activityManagerNative, observer);
+            IInterface iInterface = (IInterface) cls.getMethod("getDefault").invoke(null);
+            if (iInterface != null) {
+                Method method = iInterface.getClass().getMethod("unregisterProcessObserver", IProcessObserver.class);
+                method.invoke(iInterface, observer);
             }
         } catch (Exception e) {
             e.printStackTrace();
