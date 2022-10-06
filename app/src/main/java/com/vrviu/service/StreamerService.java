@@ -1,18 +1,19 @@
 package com.vrviu.service;
 
 import android.accessibilityservice.AccessibilityService;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Rect;
+import android.os.IBinder;
+import android.view.Surface;
 import android.view.accessibility.AccessibilityEvent;
 
 import com.vrviu.streamer.BuildConfig;
-import com.vrviu.streamer.R;
 import com.vrviu.net.ControlTcpClient;
 import com.vrviu.net.VideoTcpClient;
 import com.vrviu.net.VideoTcpServer;
+import com.vrviu.streamer.MediaEncoder;
+import com.vrviu.utils.SurfaceControl;
 import com.vrviu.utils.SystemUtils;
 
 public class StreamerService extends AccessibilityService {
@@ -27,18 +28,12 @@ public class StreamerService extends AccessibilityService {
     private SharedPreferences preferences = null;
     private ControlTcpClient controlTcpClient = null;
 
+    private MediaEncoder mediaEncoder = new MediaEncoder();
+
     @Override
     public void onCreate() {
         super.onCreate();
         SystemUtils.setProperty("vrviu.version.streamer", BuildConfig.VERSION_NAME);
-
-		if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-			NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-			NotificationChannel channel = new NotificationChannel(getPackageName(), getString(R.string.app_name), NotificationManager.IMPORTANCE_HIGH);
-			notificationManager.createNotificationChannel(channel);
-			Notification notification = new Notification.Builder(getApplicationContext(), getPackageName()).build();
-			startForeground(1, notification);
-		}
 
         preferences = getSharedPreferences(getPackageName(),Context.MODE_PRIVATE);
         String ip = preferences.getString(lsIpField,defaultIP);
@@ -85,12 +80,17 @@ public class StreamerService extends AccessibilityService {
                 editor.putString(packageNameField,packageName);
                 editor.apply();
             }
-            return false;
+
+            Rect rect = new Rect(0,0,width,height);
+            IBinder display = SurfaceControl.createDisplay("streamer", true);
+            Surface surface = mediaEncoder.init(rect.width(),rect.height(),maxFps,bitrate,minFps);
+            SurfaceControl.setDisplaySurface(display, surface, rect, rect,0);
+            return mediaEncoder.start();
         }
 
         @Override
         public void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl) {
-
+            mediaEncoder.stop();
         }
 
         @Override
