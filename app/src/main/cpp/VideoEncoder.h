@@ -24,7 +24,7 @@ class VideoEncoder
 private:
     int nWidth;
     int nHeight;
-    pthread_t thread;
+    pthread_t tid = 0;
 
     ANativeWindow *surface = NULL;
     AMediaCodec *videoCodec = NULL;

@@ -18,7 +18,7 @@ VideoEncoder::VideoEncoder()
 {
     nWidth = 0;
     nHeight = 0;
-    thread = 0;
+    tid = 0;
     mVideoTrack = -1;
     mIsRecording = false;
 }
@@ -86,7 +86,7 @@ bool VideoEncoder::start(const char *filename) {
     }
 
     mIsRecording = true;
-    if(pthread_create(&thread, NULL, encode_thread, this)!=0) {
+    if(pthread_create(&tid, NULL, encode_thread, this)!=0) {
         LOGI("encode_thread failed!");
         release();
         return false;
@@ -130,6 +130,11 @@ void VideoEncoder::dequeueOutput() {
                 AMediaMuxer_start(mMuxer);
             }
         }
+
+        if(info->flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
+            LOGI("AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
+            break;
+        }
     } while (outIndex >= 0);
 
     gettimeofday(&tv, NULL);
@@ -152,6 +157,11 @@ bool VideoEncoder::isRecording() {
 
 void VideoEncoder::release() {
     mIsRecording = false;
+    if(tid!=0) {
+        LOGI("pthread_join!!!");
+        pthread_join(tid, NULL);
+        tid = 0;
+    }
 
     if (videoCodec != NULL) {
         AMediaCodec_stop(videoCodec);
@@ -171,4 +181,5 @@ void VideoEncoder::release() {
         AMediaMuxer_delete(mMuxer);
         mMuxer = NULL;
     }
+    LOGI("release!!!");
 }

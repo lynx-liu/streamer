@@ -28,6 +28,7 @@ public class StreamerService extends AccessibilityService {
     private SharedPreferences preferences = null;
     private ControlTcpClient controlTcpClient = null;
 
+    private IBinder display = null;
     private MediaEncoder mediaEncoder = new MediaEncoder();
 
     @Override
@@ -81,16 +82,27 @@ public class StreamerService extends AccessibilityService {
                 editor.apply();
             }
 
+            if(display!=null) {
+                mediaEncoder.stop();
+                SurfaceControl.destroyDisplay(display);
+                display = null;
+            }
+
             Rect rect = new Rect(0,0,width,height);
-            IBinder display = SurfaceControl.createDisplay("streamer", true);
-            Surface surface = mediaEncoder.init(rect.width(),rect.height(),maxFps,bitrate,minFps);
+            Surface surface = mediaEncoder.init(rect.width(),rect.height(),maxFps,bitrate*1000,minFps);
+
+            display = SurfaceControl.createDisplay("streamer", true);
             SurfaceControl.setDisplaySurface(display, surface, rect, rect,0);
             return mediaEncoder.start();
         }
 
         @Override
         public void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl) {
-            mediaEncoder.stop();
+            if(display!=null) {
+                mediaEncoder.stop();
+                SurfaceControl.destroyDisplay(display);
+                display = null;
+            }
         }
 
         @Override
@@ -107,12 +119,38 @@ public class StreamerService extends AccessibilityService {
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
         public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
-            return false;
+            boolean isGameMode = gameMode!=NOT_IN_GAME;
+            if(preferences!=null) {
+                SharedPreferences.Editor editor = preferences.edit();
+                editor.putString(lsIpField,lsIp);
+                editor.putInt(lsControlPortField,lsControlPort);
+                editor.putBoolean(isGameModeField,isGameMode);
+                editor.putString(downloadDirField,downloadDir);
+                editor.putString(packageNameField,packageName);
+                editor.apply();
+            }
+
+            if(display!=null) {
+                mediaEncoder.stop();
+                SurfaceControl.destroyDisplay(display);
+                display = null;
+            }
+
+            Rect rect = new Rect(0,0,width,height);
+            Surface surface = mediaEncoder.init(rect.width(),rect.height(),maxFps,bitrate*1000,minFps);
+
+            display = SurfaceControl.createDisplay("streamer", true);
+            SurfaceControl.setDisplaySurface(display, surface, rect, rect,0);
+            return mediaEncoder.start();
         }
 
         @Override
         public void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl) {
-
+            if(display!=null) {
+                mediaEncoder.stop();
+                SurfaceControl.destroyDisplay(display);
+                display = null;
+            }
         }
 
         @Override

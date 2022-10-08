@@ -12,7 +12,7 @@
 extern "C" {
 #endif
 
-VideoEncoder *videoEncoder = NULL;
+VideoEncoder *videoEncoder = new VideoEncoder();
 
 void _init(void) {
 }
@@ -23,7 +23,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期
 }
 
 JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int framerate, int bitrate, int minFps) {
-    videoEncoder = new VideoEncoder();
     ANativeWindow *nativeWindow = videoEncoder->init(width, height, framerate,bitrate, minFps);
     return ANativeWindow_toSurface(env,nativeWindow);
 }
