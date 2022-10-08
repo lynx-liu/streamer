@@ -93,7 +93,7 @@ public class StreamerService extends AccessibilityService {
 
             display = SurfaceControl.createDisplay("streamer", true);
             SurfaceControl.setDisplaySurface(display, surface, rect, rect,0);
-            return mediaEncoder.start();
+            return mediaEncoder.start(lsIp,lsVideoPort,"/sdcard/test.mp4");
         }
 
         @Override
@@ -141,7 +141,7 @@ public class StreamerService extends AccessibilityService {
 
             display = SurfaceControl.createDisplay("streamer", true);
             SurfaceControl.setDisplaySurface(display, surface, rect, rect,0);
-            return mediaEncoder.start();
+            return mediaEncoder.start(lsIp,lsVideoPort,"/sdcard/test.mp4");
         }
 
         @Override

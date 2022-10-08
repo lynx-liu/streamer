@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int framerate, int bitrate, int minFps);
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz);
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring ip, jint port, jstring filename);
 
 #ifdef __cplusplus
 }

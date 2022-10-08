@@ -27,8 +27,13 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz) {
-    return videoEncoder->start("/sdcard/encode.mp4");
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring _ip, jint port, jstring _filename) {
+    const char* ip = env->GetStringUTFChars(_ip,NULL);
+    const char* filename = env->GetStringUTFChars(_filename,NULL);
+    bool ret = videoEncoder->start(ip,port,filename);
+    env->ReleaseStringUTFChars(_filename, filename);
+    env->ReleaseStringUTFChars(_ip, ip);
+    return ret;
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_stop(JNIEnv *env, jobject thiz) {

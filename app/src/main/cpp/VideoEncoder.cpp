@@ -8,7 +8,7 @@
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
-int64_t systemnanotime() {
+inline int64_t systemnanotime() {
     timespec now;
     clock_gettime(CLOCK_MONOTONIC, &now);
     return now.tv_sec * 1000000000LL + now.tv_nsec;
@@ -18,9 +18,11 @@ VideoEncoder::VideoEncoder()
 {
     nWidth = 0;
     nHeight = 0;
-    tid = 0;
+    encode_tid = 0;
+    m_sockfd = -1;
     mVideoTrack = -1;
     mIsRecording = false;
+    memset(&spspps,0,sizeof(spspps));
 }
 
 VideoEncoder::~VideoEncoder(void)
@@ -67,7 +69,7 @@ ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitr
     return surface;
 }
 
-bool VideoEncoder::start(const char *filename) {
+bool VideoEncoder::start(const char *ip, int port, const char *filename) {
     int fd = open(filename, O_CREAT | O_RDWR, 0666);
     if (!fd) {
         LOGE("open media file failed-->%d", fd);
@@ -85,8 +87,15 @@ bool VideoEncoder::start(const char *filename) {
         return false;
     }
 
+    m_sockfd = connectSocket(ip,port);
+    if(m_sockfd<0) {
+        LOGI("connectSocket failed!");
+        release();
+        return false;
+    }
+
     mIsRecording = true;
-    if(pthread_create(&tid, NULL, encode_thread, this)!=0) {
+    if(pthread_create(&encode_tid, NULL, encode_thread, this)!=0) {
         LOGI("encode_thread failed!");
         release();
         return false;
@@ -94,38 +103,28 @@ bool VideoEncoder::start(const char *filename) {
     return true;
 }
 
-void VideoEncoder::dequeueOutput() {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    long start = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-
-    AMediaCodecBufferInfo *info = (AMediaCodecBufferInfo *) malloc(sizeof(AMediaCodecBufferInfo));
+inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
     ssize_t outIndex = -1;
     do {
+        int64_t start = systemnanotime();
         outIndex = AMediaCodec_dequeueOutputBuffer(videoCodec, info, timeoutUs);
-        LOGI("AMediaCodec_dequeueOutputBuffer %zd", outIndex);
 
         size_t out_size = 0;
         if (outIndex >= 0) {
-            uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec,
-                                                                outIndex, &out_size);
-            if (mVideoTrack >= 0 && info->size > 0
-                && info->presentationTimeUs > 0) {
-                AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer,
-                                            info);
+            uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
+            if (mVideoTrack >= 0 && info->size > 0 && info->presentationTimeUs > 0) {
+                AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
+
+                onH264Frame(outputBuffer+info->offset, info->size, info->presentationTimeUs);
             }
-            AMediaCodec_releaseOutputBuffer(videoCodec, outIndex,
-                                            false);
-            if (mIsRecording) {
-                continue;
-            }
+
+            AMediaCodec_releaseOutputBuffer(videoCodec, outIndex, false);
         } else if (outIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
             AMediaFormat *outFormat = AMediaCodec_getOutputFormat(videoCodec);
             ssize_t track = AMediaMuxer_addTrack(mMuxer, outFormat);
             const char *s = AMediaFormat_toString(outFormat);
             mVideoTrack = 0;
-            LOGI("video out format %s", s);
-            LOGE("add video track status-->%zd", track);
+            LOGE("video out format %s, add video track status-->%zd", s, track);
             if (mVideoTrack >= 0) {
                 AMediaMuxer_start(mMuxer);
             }
@@ -135,20 +134,96 @@ void VideoEncoder::dequeueOutput() {
             LOGI("AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
             break;
         }
-    } while (outIndex >= 0);
 
-    gettimeofday(&tv, NULL);
-    LOGI("dequeueOutput: %ld\r\n",
-         tv.tv_sec * 1000 + tv.tv_usec / 1000 - start);
+        LOGI("AMediaCodec_dequeueOutputBuffer: %zd, %d, %ld us\r\n", outIndex, info->offset, systemnanotime() - start);
+    } while (outIndex >= 0);
 }
 
 void* VideoEncoder::encode_thread(void *arg) {
     VideoEncoder *videoEncoder =(VideoEncoder *)arg;
+    AMediaCodecBufferInfo *info = (AMediaCodecBufferInfo *) malloc(sizeof(AMediaCodecBufferInfo));
     while(videoEncoder->mIsRecording) {
-        videoEncoder->dequeueOutput();
+        videoEncoder->dequeueOutput(info);
     }
+    free(info);
     LOGI("encode_thread exit");
     return 0;
+}
+
+inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts) {
+    Header header;
+    header.type = ntohs(frametype);
+    header.keyframe = ntohs(keyframe);
+    header.timestamp = ntohq(ts);
+    header.size = ntohl(size);
+
+    send(m_sockfd, &header, sizeof(header), 0);
+    send(m_sockfd, bytes, size, 0);
+}
+
+inline void VideoEncoder::onH264Frame(uint8_t* bytes, size_t size, int64_t ts) {
+    int frametype=0;
+    int nalutype=bytes[4]&0x1f;
+    bool fixNalueType=false;
+    if(bytes[4]!=0x67){
+        //common-c just fit like 0x67,0x68,0x65,0x61
+        bytes[4]=(bytes[4]|0x60);
+        fixNalueType=true;
+    }
+
+    if(nalutype==NonIDR){
+        onEncodeFrame(bytes,size,frametype,false,ts);
+    } else if(nalutype==IDR){
+        uint8_t* data = new uint8_t[spspps.header.size + size];
+        memcpy(data,spspps.data,spspps.header.size);
+        memcpy(data+spspps.header.size,bytes,size);
+        onEncodeFrame(data,spspps.header.size+size,frametype,true,ts);
+        delete [] data;
+    } else if(nalutype==SPS){
+        if(fixNalueType){
+            for (int i=5;i<size-5;++i){
+                if(bytes[i]==0
+                   &&bytes[i+1]==0
+                   &&bytes[i+2]==0
+                   &&bytes[i+3]==1
+                   &&(bytes[i+4]&0x1f)==8){
+                    bytes[i+4]=(bytes[i+4]|0x60);
+                    break;
+                }
+            }
+        }
+
+        if(spspps.data)
+            delete []spspps.data;
+        spspps.data = new uint8_t[size];
+        spspps.header.size = size;
+        memcpy(spspps.data,bytes,size);
+    }
+}
+
+int VideoEncoder::connectSocket(const char *ip, int port) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(fd<0) return -1;
+
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(port);
+    if(inet_pton(AF_INET, ip, &servaddr.sin_addr) <= 0){
+        LOGE("inet_pton error for %s\n",ip);
+        close(fd);
+        return -1;
+    }
+
+    int opt = 1;//端口复用
+    setsockopt(fd, SOL_SOCKET,SO_REUSEADDR, (const void *) &opt, sizeof(opt));
+
+    if( connect(fd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0){
+        LOGE("connect error: %s:%d\n",ip,port);
+        close(fd);
+        return -1;
+    }
+    return fd;
 }
 
 bool VideoEncoder::isRecording() {
@@ -157,10 +232,10 @@ bool VideoEncoder::isRecording() {
 
 void VideoEncoder::release() {
     mIsRecording = false;
-    if(tid!=0) {
-        LOGI("pthread_join!!!");
-        pthread_join(tid, NULL);
-        tid = 0;
+    if(encode_tid!=0) {
+        LOGI("encode pthread_join!!!");
+        pthread_join(encode_tid, NULL);
+        encode_tid = 0;
     }
 
     if (videoCodec != NULL) {
@@ -180,6 +255,11 @@ void VideoEncoder::release() {
         AMediaMuxer_stop(mMuxer);
         AMediaMuxer_delete(mMuxer);
         mMuxer = NULL;
+    }
+
+    if(m_sockfd>=0) {
+        close(m_sockfd);
+        m_sockfd = -1;
     }
     LOGI("release!!!");
 }
