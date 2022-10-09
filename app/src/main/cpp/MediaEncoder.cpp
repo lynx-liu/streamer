@@ -29,9 +29,16 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring _ip, jint port, jstring _filename) {
     const char* ip = env->GetStringUTFChars(_ip,NULL);
-    const char* filename = env->GetStringUTFChars(_filename,NULL);
+    const char* filename = nullptr;
+    if(_filename!= nullptr) {
+        filename = env->GetStringUTFChars(_filename, NULL);
+    }
+
     bool ret = videoEncoder->start(ip,port,filename);
-    env->ReleaseStringUTFChars(_filename, filename);
+
+    if(_filename!= nullptr) {
+        env->ReleaseStringUTFChars(_filename, filename);
+    }
     env->ReleaseStringUTFChars(_ip, ip);
     return ret;
 }

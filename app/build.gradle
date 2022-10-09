@@ -8,15 +8,15 @@ android {
         minSdkVersion 29
         targetSdkVersion 33
         versionCode 5
-        versionName "1.1.4"
+        versionName "1.1.5"
         externalNativeBuild {
             cmake {
-                cppFlags "-frtti -fexceptions -std=c++11"
+                cppFlags "-frtti -fexceptions -std=c++11 -O3"
             }
         }
 
         ndk {
-            abiFilters 'armeabi-v7a', 'arm64-v8a', 'x86_64', 'x86'
+            abiFilters 'arm64-v8a', 'x86_64'
         }
     }
 

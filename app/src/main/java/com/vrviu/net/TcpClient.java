@@ -1,5 +1,7 @@
 package com.vrviu.net;
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.net.Socket;
 
@@ -23,6 +25,7 @@ public abstract class TcpClient extends Thread {
                 client=new Socket(ip,port);
                 onConnected(client);
             } catch (Exception e) {
+                Log.d("llx",e.toString());
                 try {
                     sleep(500);
                 } catch (InterruptedException ex) {

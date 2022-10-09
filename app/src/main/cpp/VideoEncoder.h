@@ -23,6 +23,7 @@
 #define SPS                             7
 
 inline int64_t systemnanotime();
+inline int32_t systemmilltime();
 
 #pragma pack(push)
 #pragma pack(1)
@@ -59,16 +60,15 @@ private:
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
     static void* encode_thread(void *arg);
     inline void onH264Frame(uint8_t* bytes, size_t size, int64_t ts);
-    inline void onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts);
+    inline void onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts) const;
 
-    int connectSocket(const char *ip, int port);
+    static int connectSocket(const char *ip, int port);
 
 public:
     VideoEncoder();
-    ~VideoEncoder(void);
+    ~VideoEncoder();
     ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps);
     bool start(const char *ip, int port, const char *filename);
-    bool isRecording();
     void release();
 };
 

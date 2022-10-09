@@ -9,9 +9,13 @@
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
 inline int64_t systemnanotime() {
-    timespec now;
+    timespec now{};
     clock_gettime(CLOCK_MONOTONIC, &now);
     return now.tv_sec * 1000000000LL + now.tv_nsec;
+}
+
+inline int32_t systemmilltime() {
+    return systemnanotime()/1000000;
 }
 
 VideoEncoder::VideoEncoder()
@@ -25,14 +29,14 @@ VideoEncoder::VideoEncoder()
     memset(&spspps,0,sizeof(spspps));
 }
 
-VideoEncoder::~VideoEncoder(void)
+VideoEncoder::~VideoEncoder()
 {
     release();
 }
 
 ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitrate, int minFps) {
     if(width==0 || height==0)
-        return NULL;
+        return nullptr;
 
     nWidth = width; nHeight = height;
     timeoutUs = minFps>0? 1000000L/minFps : -1;
@@ -50,19 +54,19 @@ ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitr
 
     videoCodec = AMediaCodec_createEncoderByType(VIDEO_MIME);
     media_status_t videoConfigureStatus = AMediaCodec_configure(videoCodec,
-                                                                videoFormat, NULL, NULL, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
+                                                                videoFormat, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
     AMediaFormat_delete(videoFormat);
     if (AMEDIA_OK != videoConfigureStatus) {
         LOGE("set video configure failed status-->%d", videoConfigureStatus);
         release();
-        return NULL;
+        return nullptr;
     }
 
     media_status_t createInputSurfaceStatus = AMediaCodec_createInputSurface(videoCodec, &surface);
     if (AMEDIA_OK != createInputSurfaceStatus) {
         LOGE("create Input Surface failed status-->%d", createInputSurfaceStatus);
         release();
-        return NULL;
+        return nullptr;
     }
 
     LOGI("init videoCodec success");
@@ -70,14 +74,16 @@ ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitr
 }
 
 bool VideoEncoder::start(const char *ip, int port, const char *filename) {
-    int fd = open(filename, O_CREAT | O_RDWR, 0666);
-    if (!fd) {
-        LOGE("open media file failed-->%d", fd);
-        release();
-        return false;
+    if(filename) {
+        int fd = open(filename, O_CREAT | O_RDWR, 0666);
+        if (!fd) {
+            LOGE("open media file failed-->%d", fd);
+            release();
+            return false;
+        }
+        mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
+        AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
     }
-    mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
-    AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     media_status_t videoStatus = AMediaCodec_start(videoCodec);
@@ -95,7 +101,7 @@ bool VideoEncoder::start(const char *ip, int port, const char *filename) {
     }
 
     mIsRecording = true;
-    if(pthread_create(&encode_tid, NULL, encode_thread, this)!=0) {
+    if(pthread_create(&encode_tid, nullptr, encode_thread, this)!=0) {
         LOGI("encode_thread failed!");
         release();
         return false;
@@ -104,28 +110,31 @@ bool VideoEncoder::start(const char *ip, int port, const char *filename) {
 }
 
 inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
-    ssize_t outIndex = -1;
+    ssize_t outIndex;
     do {
-        int64_t start = systemnanotime();
+        int32_t start = systemmilltime();
         outIndex = AMediaCodec_dequeueOutputBuffer(videoCodec, info, timeoutUs);
+        LOGI("AMediaCodec_dequeueOutputBuffer: %zd, %d, %d ms\r\n", outIndex, info->offset, systemmilltime() - start);
 
         size_t out_size = 0;
         if (outIndex >= 0) {
             uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
             if (mVideoTrack >= 0 && info->size > 0 && info->presentationTimeUs > 0) {
-                AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
-
                 onH264Frame(outputBuffer+info->offset, info->size, info->presentationTimeUs);
+                if(mMuxer) {
+                    AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
+                }
             }
 
             AMediaCodec_releaseOutputBuffer(videoCodec, outIndex, false);
         } else if (outIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
             AMediaFormat *outFormat = AMediaCodec_getOutputFormat(videoCodec);
-            ssize_t track = AMediaMuxer_addTrack(mMuxer, outFormat);
             const char *s = AMediaFormat_toString(outFormat);
+            LOGI("video out format %s", s);
             mVideoTrack = 0;
-            LOGE("video out format %s, add video track status-->%zd", s, track);
-            if (mVideoTrack >= 0) {
+
+            if(mMuxer) {
+                AMediaMuxer_addTrack(mMuxer, outFormat);
                 AMediaMuxer_start(mMuxer);
             }
         }
@@ -134,23 +143,21 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
             LOGI("AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
             break;
         }
-
-        LOGI("AMediaCodec_dequeueOutputBuffer: %zd, %d, %ld us\r\n", outIndex, info->offset, systemnanotime() - start);
     } while (outIndex >= 0);
 }
 
 void* VideoEncoder::encode_thread(void *arg) {
-    VideoEncoder *videoEncoder =(VideoEncoder *)arg;
-    AMediaCodecBufferInfo *info = (AMediaCodecBufferInfo *) malloc(sizeof(AMediaCodecBufferInfo));
+    auto *videoEncoder =(VideoEncoder *)arg;
+    auto *info = (AMediaCodecBufferInfo *) malloc(sizeof(AMediaCodecBufferInfo));
     while(videoEncoder->mIsRecording) {
         videoEncoder->dequeueOutput(info);
     }
     free(info);
     LOGI("encode_thread exit");
-    return 0;
+    return nullptr;
 }
 
-inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts) {
+inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts) const {
     Header header;
     header.type = ntohs(frametype);
     header.keyframe = ntohs(keyframe);
@@ -174,7 +181,7 @@ inline void VideoEncoder::onH264Frame(uint8_t* bytes, size_t size, int64_t ts) {
     if(nalutype==NonIDR){
         onEncodeFrame(bytes,size,frametype,false,ts);
     } else if(nalutype==IDR){
-        uint8_t* data = new uint8_t[spspps.header.size + size];
+        auto* data = new uint8_t[spspps.header.size + size];
         memcpy(data,spspps.data,spspps.header.size);
         memcpy(data+spspps.header.size,bytes,size);
         onEncodeFrame(data,spspps.header.size+size,frametype,true,ts);
@@ -193,8 +200,7 @@ inline void VideoEncoder::onH264Frame(uint8_t* bytes, size_t size, int64_t ts) {
             }
         }
 
-        if(spspps.data)
-            delete []spspps.data;
+        delete []spspps.data;
         spspps.data = new uint8_t[size];
         spspps.header.size = size;
         memcpy(spspps.data,bytes,size);
@@ -205,7 +211,7 @@ int VideoEncoder::connectSocket(const char *ip, int port) {
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if(fd<0) return -1;
 
-    struct sockaddr_in servaddr;
+    struct sockaddr_in servaddr{};
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(port);
@@ -226,35 +232,31 @@ int VideoEncoder::connectSocket(const char *ip, int port) {
     return fd;
 }
 
-bool VideoEncoder::isRecording() {
-    return mIsRecording;
-}
-
 void VideoEncoder::release() {
     mIsRecording = false;
     if(encode_tid!=0) {
         LOGI("encode pthread_join!!!");
-        pthread_join(encode_tid, NULL);
+        pthread_join(encode_tid, nullptr);
         encode_tid = 0;
     }
 
-    if (videoCodec != NULL) {
+    if (videoCodec) {
         AMediaCodec_stop(videoCodec);
         AMediaCodec_delete(videoCodec);
-        videoCodec = NULL;
+        videoCodec = nullptr;
     }
 
-    if(surface != NULL) {
+    if(surface) {
         ANativeWindow_release(surface);
-        surface = NULL;
+        surface = nullptr;
     }
 
     mVideoTrack = -1;
 
-    if (mMuxer != NULL) {
+    if (mMuxer) {
         AMediaMuxer_stop(mMuxer);
         AMediaMuxer_delete(mMuxer);
-        mMuxer = NULL;
+        mMuxer = nullptr;
     }
 
     if(m_sockfd>=0) {
