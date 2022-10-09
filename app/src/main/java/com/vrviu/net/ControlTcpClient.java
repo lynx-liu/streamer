@@ -140,7 +140,7 @@ public final class ControlTcpClient extends TcpClient{
 
         displayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
         Display display = displayManager.getDisplay(0);
-        display.getSize(screenSize);
+        display.getRealSize(screenSize);
         displayManager.registerDisplayListener(displayListener,handler);
         Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation());
 
@@ -253,7 +253,7 @@ public final class ControlTcpClient extends TcpClient{
         @Override
         public void onDisplayChanged(int displayId) {
             Display display = displayManager.getDisplay(displayId);
-            display.getSize(screenSize);
+            display.getRealSize(screenSize);
             new Thread(() -> sendRotationChanged((byte) (screenSize.x>screenSize.y?0:1))).start();
         }
     };
