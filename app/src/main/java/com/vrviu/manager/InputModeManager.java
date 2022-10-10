@@ -6,9 +6,9 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
+import android.os.RemoteException;
 import android.provider.Settings;
 import android.util.Log;
-import android.view.inputmethod.InputMethodManager;
 
 import com.vrviu.utils.SystemUtils;
 
@@ -25,7 +25,6 @@ public abstract class InputModeManager {
 
     private static Handler mHandler = null;
     private static ContentResolver contentResolver = null;
-    private static InputMethodManager inputMethodManager = null;
     private static final List<String> target_activity_list = new ArrayList<>();
     private static final List<String> special_activity_list = new ArrayList<>();
     private static final List<String> disable_simpleInputMethod_activity_list = new ArrayList<>();
@@ -41,7 +40,6 @@ public abstract class InputModeManager {
 
         mHandler = handler;
         contentResolver = context.getContentResolver();
-        inputMethodManager = (InputMethodManager) context.getSystemService(Context.INPUT_METHOD_SERVICE);
 
         SystemUtils.registerProcessObserver(iProcessObserver);
         SystemUtils.setActivityController(iActivityController,true);
@@ -233,7 +231,10 @@ public abstract class InputModeManager {
 
         @Override
         public void onProcessStateChanged(int pid, int uid, int procState) {
+        }
 
+        @Override
+        public void onForegroundServicesChanged(int pid, int uid, int serviceTypes) throws RemoteException {
         }
 
         @Override
