@@ -8,7 +8,7 @@ android {
         minSdkVersion 29
         targetSdkVersion 33
         versionCode 5
-        versionName "1.1.7"
+        versionName "1.1.8"
         externalNativeBuild {
             cmake {
                 cppFlags "-frtti -fexceptions -std=c++11 -O3"

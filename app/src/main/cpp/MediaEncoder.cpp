@@ -50,6 +50,14 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_stop(JNIEnv *env
     return true;
 }
 
+JNIEXPORT void JNICALL Java_com_vrviu_streamer_MediaEncoder_requestSyncFrame(JNIEnv *env, jobject thiz) {
+    videoEncoder->requestSyncFrame();
+}
+
+JNIEXPORT void JNICALL Java_com_vrviu_streamer_MediaEncoder_setVideoBitrate(JNIEnv *env, jobject thiz, jint bitrate) {
+    videoEncoder->setVideoBitrate(bitrate);
+}
+
 #ifdef __cplusplus
 }
 #endif

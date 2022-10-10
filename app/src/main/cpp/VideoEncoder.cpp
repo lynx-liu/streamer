@@ -36,6 +36,20 @@ VideoEncoder::~VideoEncoder()
     release();
 }
 
+void VideoEncoder::requestSyncFrame() {
+    AMediaFormat *videoFormat = AMediaFormat_new();
+    AMediaFormat_setInt32(videoFormat, PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+    AMediaCodec_setParameters(videoCodec,videoFormat);
+    AMediaFormat_delete(videoFormat);
+}
+
+void VideoEncoder::setVideoBitrate(int bitrate) {
+    AMediaFormat *videoFormat = AMediaFormat_new();
+    AMediaFormat_setInt32(videoFormat, PARAMETER_KEY_VIDEO_BITRATE, bitrate);
+    AMediaCodec_setParameters(videoCodec,videoFormat);
+    AMediaFormat_delete(videoFormat);
+}
+
 ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitrate, int minFps) {
     if(width==0 || height==0)
         return nullptr;

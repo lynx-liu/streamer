@@ -22,6 +22,9 @@
 #define IDR                             5
 #define SPS                             7
 
+const char PARAMETER_KEY_REQUEST_SYNC_FRAME[] = "request-sync";
+const char PARAMETER_KEY_VIDEO_BITRATE[] = "video-bitrate";
+
 inline int64_t systemnanotime();
 inline int32_t systemmilltime();
 
@@ -67,6 +70,8 @@ private:
 public:
     VideoEncoder();
     ~VideoEncoder();
+    void requestSyncFrame();
+    void setVideoBitrate(int bitrate);
     ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps);
     bool start(const char *ip, int port, const char *filename);
     void release();

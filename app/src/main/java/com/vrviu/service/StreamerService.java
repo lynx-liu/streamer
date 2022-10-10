@@ -175,11 +175,16 @@ public class StreamerService extends AccessibilityService {
 
         @Override
         public void requestIdrFrame() {
-
+            Log.d("llx","requestIdrFrame");
+            mediaEncoder.requestSyncFrame();
         }
 
         @Override
         public boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec) {
+            if(bitrate>0) {
+                mediaEncoder.setVideoBitrate(bitrate*1000);
+                return true;
+            }
             return false;
         }
     };
