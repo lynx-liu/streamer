@@ -11,7 +11,7 @@ public class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();//监听开机广播时，Application会启动，在Application的onCreate中启动了Service
         if (bootAction.equals(action)) {
-            Log.d("llx", "screenshot listener "+bootAction);
+            Log.d("llx", bootAction);
         }
     }
 }

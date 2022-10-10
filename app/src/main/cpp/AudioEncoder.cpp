@@ -38,7 +38,7 @@ bool AudioEncoder::start(JNIEnv *env, const char *ip, int port) {
         release();
         return false;
     }
-    LOGI("init audioCodec success");
+    LOGI("audio start success");
     return true;
 }
 
@@ -46,7 +46,7 @@ void* AudioEncoder::encode_thread(void *arg) {
     auto *audioEncoder =(AudioEncoder *)arg;
 
     JNIEnv *jniEnv = nullptr;
-    audioEncoder->jvm->AttachCurrentThread(&jniEnv, NULL);
+    audioEncoder->jvm->AttachCurrentThread(&jniEnv, nullptr);
 
     jclass audioRecordClass = jniEnv->FindClass("android/media/AudioRecord");
 

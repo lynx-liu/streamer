@@ -40,10 +40,11 @@ ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitr
     if(width==0 || height==0)
         return nullptr;
 
-    nWidth = width; nHeight = height;
+    nWidth = std::max(width,height);
+    nHeight = std::min(width,height);
     timeoutUs = minFps>0? 1000000L/minFps : -1;
-    const char *VIDEO_MIME = "video/avc";
 
+    const char *VIDEO_MIME = "video/avc";
     AMediaFormat *videoFormat = AMediaFormat_new();
     AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, nWidth);
@@ -97,17 +98,18 @@ bool VideoEncoder::start(const char *ip, int port, const char *filename) {
 
     m_sockfd = connectSocket(ip,port);
     if(m_sockfd<0) {
-        LOGI("connectSocket failed!");
+        LOGI("video connectSocket failed!");
         release();
         return false;
     }
 
     mIsRecording = true;
     if(pthread_create(&encode_tid, nullptr, encode_thread, this)!=0) {
-        LOGI("encode_thread failed!");
+        LOGI("video encode_thread failed!");
         release();
         return false;
     }
+    LOGI("video start success");
     return true;
 }
 
@@ -148,7 +150,7 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
             LOGI("AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
             break;
         }
-    } while (outIndex >= 0);
+    } while (mIsRecording);
 }
 
 void* VideoEncoder::encode_thread(void *arg) {
@@ -158,7 +160,7 @@ void* VideoEncoder::encode_thread(void *arg) {
         videoEncoder->dequeueOutput(info);
     }
     free(info);
-    LOGI("encode_thread exit");
+    LOGI("video encode_thread exit");
     return nullptr;
 }
 
@@ -240,7 +242,7 @@ int VideoEncoder::connectSocket(const char *ip, int port) {
 void VideoEncoder::release() {
     mIsRecording = false;
     if(encode_tid!=0) {
-        LOGI("encode pthread_join!!!");
+        LOGI("video encode pthread_join!!!");
         pthread_join(encode_tid, nullptr);
         encode_tid = 0;
     }
@@ -268,5 +270,5 @@ void VideoEncoder::release() {
         close(m_sockfd);
         m_sockfd = -1;
     }
-    LOGI("release!!!");
+    LOGI("video release!!!");
 }

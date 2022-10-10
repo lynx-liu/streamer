@@ -1,5 +1,7 @@
 package com.vrviu.net;
 
+import android.util.Log;
+
 import com.vrviu.utils.JsonUtils;
 
 import org.json.JSONObject;
@@ -63,6 +65,7 @@ public abstract class VideoTcpServer extends TcpServer {
     }
 
     private boolean onStartStreaming(final String jsonString) {
+        Log.d("llx",jsonString);
         try {
             JSONObject jsonObject = new JSONObject(jsonString);
             String flowId = JsonUtils.get(jsonObject, "flowId", "");
@@ -94,6 +97,7 @@ public abstract class VideoTcpServer extends TcpServer {
     }
 
     private boolean onStopStreaming(final String jsonString) {
+        Log.d("llx",jsonString);
         try {
             JSONObject jsonObject = new JSONObject(jsonString);
             int video = JsonUtils.get(jsonObject, "video", -1);//51898

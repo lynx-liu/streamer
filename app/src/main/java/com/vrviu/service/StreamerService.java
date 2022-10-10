@@ -3,8 +3,12 @@ package com.vrviu.service;
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Point;
 import android.graphics.Rect;
+import android.hardware.display.DisplayManager;
 import android.os.IBinder;
+import android.util.Log;
+import android.view.Display;
 import android.view.Surface;
 import android.view.accessibility.AccessibilityEvent;
 
@@ -17,6 +21,7 @@ import com.vrviu.utils.SystemUtils;
 
 public class StreamerService extends AccessibilityService {
     private static final String lsIpField = "lsIp";
+    private static final String startStreamingField = "startStreaming";
     private static final String lsControlPortField = "lsControlPort";
     private static final String isGameModeField = "isGameMode";
     private static final String downloadDirField = "downloadDir";
@@ -27,23 +32,35 @@ public class StreamerService extends AccessibilityService {
     private SharedPreferences preferences = null;
     private ControlTcpClient controlTcpClient = null;
 
-    private IBinder display = null;
-    private MediaEncoder mediaEncoder = new MediaEncoder();
+    private static int videoWidth = 1920;
+    private static int videoHeight = 1080;
+    private IBinder iDisplay = null;
+    private DisplayManager displayManager;
+    private static final Point screenSize = new Point();
+    private final MediaEncoder mediaEncoder = new MediaEncoder();
 
     @Override
     public void onCreate() {
         super.onCreate();
         SystemUtils.setProperty("vrviu.version.streamer", BuildConfig.VERSION_NAME);
 
-        preferences = getSharedPreferences(getPackageName(),Context.MODE_PRIVATE);
-        String ip = preferences.getString(lsIpField,defaultIP);
-        int port = preferences.getInt(lsControlPortField,5000);
-        boolean isGameMode = preferences.getBoolean(isGameModeField,true);
-        String downloadDir = preferences.getString(downloadDirField, null);
-        String packageName = preferences.getString(packageNameField, null);
-        controlTcpClient = new ControlTcpClient(getApplicationContext(),ip,port,isGameMode,downloadDir,packageName,null);
+        displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
+        Display display = displayManager.getDisplay(0);
+        display.getRealSize(screenSize);
+        displayManager.registerDisplayListener(displayListener,null);
+        Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation());
 
-        controlTcpClient.start();
+        preferences = getSharedPreferences(getPackageName(),Context.MODE_PRIVATE);
+        if(preferences.getBoolean(startStreamingField,false)) {
+            String ip = preferences.getString(lsIpField, defaultIP);
+            int port = preferences.getInt(lsControlPortField, 5000);
+            boolean isGameMode = preferences.getBoolean(isGameModeField, true);
+            String downloadDir = preferences.getString(downloadDirField, null);
+            String packageName = preferences.getString(packageNameField, null);
+
+            controlTcpClient = new ControlTcpClient(getApplicationContext(), ip, port, isGameMode, downloadDir, packageName, null);
+            controlTcpClient.start();
+        }
         videoTcpServer.start();
     }
 
@@ -60,10 +77,43 @@ public class StreamerService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
-        controlTcpClient.interrupt();
+        if(controlTcpClient!=null)
+            controlTcpClient.interrupt();
         videoTcpServer.interrupt();
+        displayManager.unregisterDisplayListener(displayListener);
         super.onDestroy();
     }
+
+    DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
+        @Override
+        public void onDisplayAdded(int displayId) {
+
+        }
+
+        @Override
+        public void onDisplayRemoved(int displayId) {
+
+        }
+
+        @Override
+        public void onDisplayChanged(int displayId) {
+            Display display = displayManager.getDisplay(displayId);
+            display.getRealSize(screenSize);
+
+            if(iDisplay!=null) {
+                Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+                if(screenSize.x > screenSize.y) {
+                    SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0,videoWidth,videoHeight), 0);
+                } else {
+                    SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0,videoHeight,videoWidth),3);
+                }
+            }
+
+            if(controlTcpClient!=null) {
+                controlTcpClient.setDisplayRotation(screenSize);
+            }
+        }
+    };
 
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
@@ -71,6 +121,7 @@ public class StreamerService extends AccessibilityService {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
             if(preferences!=null) {
                 SharedPreferences.Editor editor = preferences.edit();
+                editor.putBoolean(startStreamingField,true);
                 editor.putString(lsIpField,lsIp);
                 editor.putInt(lsControlPortField,lsControlPort);
                 editor.putBoolean(isGameModeField,isGameMode);
@@ -79,32 +130,46 @@ public class StreamerService extends AccessibilityService {
                 editor.apply();
             }
 
-            controlTcpClient.interrupt();
+            if(controlTcpClient!=null) controlTcpClient.interrupt();
             controlTcpClient = new ControlTcpClient(getApplicationContext(),lsIp,lsControlPort,isGameMode,downloadDir,packageName,null);
             controlTcpClient.start();
+            controlTcpClient.setDisplayRotation(screenSize);
 
-            if(display!=null) {
+            if(iDisplay!=null) {
                 mediaEncoder.stop();
-                SurfaceControl.destroyDisplay(display);
-                display = null;
+                SurfaceControl.destroyDisplay(iDisplay);
+                iDisplay = null;
             }
 
-            Rect rect = new Rect(0,0,width,height);
-            Surface surface = mediaEncoder.init(rect.width(),rect.height(),maxFps,bitrate*1000,minFps);
+            videoWidth = Math.max(width,height);
+            videoHeight= Math.min(width,height);
+            Rect screenRect = new Rect(0,0,screenSize.x,screenSize.y);
+            Surface surface = mediaEncoder.init(videoWidth,videoHeight,maxFps,bitrate*1000,minFps);
 
-            display = SurfaceControl.createDisplay("streamer", true);
-            SurfaceControl.setDisplaySurface(display, surface, rect, rect,0);
+            iDisplay = SurfaceControl.createDisplay("streamer", true);
+            if(screenSize.x>screenSize.y) {
+                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0,0,videoWidth,videoHeight), 0);
+            } else {
+                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0,0,videoHeight,videoWidth), 3);
+            }
             return mediaEncoder.start(lsIp,lsVideoPort,lsAudioPort,null);
         }
 
         @Override
         public void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl) {
-            controlTcpClient.interrupt();
+            if(preferences!=null) {
+                SharedPreferences.Editor editor = preferences.edit();
+                editor.putBoolean(startStreamingField,false);
+                editor.apply();
+            }
 
-            if(display!=null) {
+            if(controlTcpClient!=null)
+                controlTcpClient.interrupt();
+
+            if(iDisplay!=null) {
                 mediaEncoder.stop();
-                SurfaceControl.destroyDisplay(display);
-                display = null;
+                SurfaceControl.destroyDisplay(iDisplay);
+                iDisplay = null;
             }
         }
 

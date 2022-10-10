@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
 import android.hardware.camera2.CameraManager;
-import android.hardware.display.DisplayManager;
 import android.media.AudioManager;
 import android.media.AudioRecordingConfiguration;
 import android.net.Uri;
@@ -121,7 +120,6 @@ public final class ControlTcpClient extends TcpClient{
     private static boolean isCameraOn =false;
 
     private static final Point screenSize = new Point();
-    private final DisplayManager displayManager;
     private final ClipboardManager clipboardManager;
     private final AudioManager audioManager;
     private final CameraManager cameraManager;
@@ -137,12 +135,6 @@ public final class ControlTcpClient extends TcpClient{
 
         Handler handler = new Handler(context.getMainLooper());
         controlUtils = new ControlUtils(context);
-
-        displayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
-        Display display = displayManager.getDisplay(0);
-        display.getRealSize(screenSize);
-        displayManager.registerDisplayListener(displayListener,handler);
-        Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation());
 
         clipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
         clipboardManager.addPrimaryClipChangedListener(onPrimaryClipChangedListener);
@@ -239,24 +231,10 @@ public final class ControlTcpClient extends TcpClient{
         }
     };
 
-    DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
-        @Override
-        public void onDisplayAdded(int displayId) {
-
-        }
-
-        @Override
-        public void onDisplayRemoved(int displayId) {
-
-        }
-
-        @Override
-        public void onDisplayChanged(int displayId) {
-            Display display = displayManager.getDisplay(displayId);
-            display.getRealSize(screenSize);
-            new Thread(() -> sendRotationChanged((byte) (screenSize.x>screenSize.y?0:1))).start();
-        }
-    };
+    public void setDisplayRotation(Point realSize) {
+        screenSize.set(realSize.x,realSize.y);
+        new Thread(() -> sendRotationChanged((byte) (screenSize.x>screenSize.y?0:1))).start();
+    }
 
     @Override
     public void interrupt() {
@@ -265,7 +243,6 @@ public final class ControlTcpClient extends TcpClient{
         audioManager.unregisterAudioRecordingCallback(audioRecordingCallback);
         cameraManager.unregisterAvailabilityCallback(availabilityCallback);
         clipboardManager.removePrimaryClipChangedListener(onPrimaryClipChangedListener);
-        displayManager.unregisterDisplayListener(displayListener);
         super.interrupt();
     }
 

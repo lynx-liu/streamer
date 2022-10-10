@@ -2,6 +2,7 @@ package com.vrviu.utils;
 
 import android.graphics.Rect;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.Surface;
 
 import java.lang.reflect.Constructor;
@@ -35,9 +36,21 @@ public final class SurfaceControl {
     }
 
     public static void setDisplaySurface(IBinder display, Surface surface, Rect deviceRect, Rect displayRect,int orientation) {
+        Log.d("llx",deviceRect.toString()+", | "+displayRect.toString()+", orientation:"+orientation);
         SurfaceControl.openTransaction();
         try {
             SurfaceControl.setDisplaySurface(display, surface);
+            SurfaceControl.setDisplayProjection(display, orientation, deviceRect, displayRect);
+            SurfaceControl.setDisplayLayerStack(display, 0);
+        } finally {
+            SurfaceControl.closeTransaction();
+        }
+    }
+
+    public static void setDisplayRotation(IBinder display, Rect deviceRect, Rect displayRect,int orientation) {
+        Log.d("llx",deviceRect.toString()+", | "+displayRect.toString()+", orientation:"+orientation);
+        SurfaceControl.openTransaction();
+        try {
             SurfaceControl.setDisplayProjection(display, orientation, deviceRect, displayRect);
             SurfaceControl.setDisplayLayerStack(display, 0);
         } finally {
