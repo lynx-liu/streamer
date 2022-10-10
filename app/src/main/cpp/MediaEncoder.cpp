@@ -12,6 +12,7 @@
 extern "C" {
 #endif
 
+AudioEncoder *audioEncoder = new AudioEncoder();
 VideoEncoder *videoEncoder = new VideoEncoder();
 
 void _init(void) {
@@ -27,14 +28,14 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring _ip, jint port, jstring _filename) {
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring _ip, jint videoPort, jint audioPort, jstring _filename) {
     const char* ip = env->GetStringUTFChars(_ip,NULL);
     const char* filename = nullptr;
     if(_filename!= nullptr) {
         filename = env->GetStringUTFChars(_filename, NULL);
     }
 
-    bool ret = videoEncoder->start(ip,port,filename);
+    bool ret = videoEncoder->start(ip,videoPort,filename) & audioEncoder->start(env,ip,audioPort);
 
     if(_filename!= nullptr) {
         env->ReleaseStringUTFChars(_filename, filename);
@@ -44,6 +45,7 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *en
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_stop(JNIEnv *env, jobject thiz) {
+    audioEncoder->release();
     videoEncoder->release();
     return true;
 }

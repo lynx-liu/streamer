@@ -27,7 +27,7 @@ inline int32_t systemmilltime();
 
 #pragma pack(push)
 #pragma pack(1)
-struct Header {
+struct VideoHeader {
     uint16_t type = 0; //0=h264 1=h265
     uint16_t keyframe = 0;
     int64_t timestamp = 0;
@@ -37,7 +37,7 @@ struct Header {
 
 typedef struct ABuffer {
     uint8_t*    data;
-    Header      header;
+    VideoHeader header;
 } ABuffer;
 
 class VideoEncoder

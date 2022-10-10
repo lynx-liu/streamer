@@ -8,6 +8,8 @@
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
+#define NDK_DEBUG   0
+
 inline int64_t systemnanotime() {
     timespec now{};
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -112,10 +114,13 @@ bool VideoEncoder::start(const char *ip, int port, const char *filename) {
 inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
     ssize_t outIndex;
     do {
+#if NDK_DEBUG
         int32_t start = systemmilltime();
+#endif
         outIndex = AMediaCodec_dequeueOutputBuffer(videoCodec, info, timeoutUs);
+#if NDK_DEBUG
         LOGI("AMediaCodec_dequeueOutputBuffer: %zd, %d, %d ms\r\n", outIndex, info->offset, systemmilltime() - start);
-
+#endif
         size_t out_size = 0;
         if (outIndex >= 0) {
             uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
@@ -158,7 +163,7 @@ void* VideoEncoder::encode_thread(void *arg) {
 }
 
 inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts) const {
-    Header header;
+    VideoHeader header;
     header.type = ntohs(frametype);
     header.keyframe = ntohs(keyframe);
     header.timestamp = ntohq(ts);

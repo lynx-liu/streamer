@@ -94,7 +94,7 @@ public class StreamerService extends AccessibilityService {
 
             display = SurfaceControl.createDisplay("streamer", true);
             SurfaceControl.setDisplaySurface(display, surface, rect, rect,0);
-            return mediaEncoder.start(lsIp,lsVideoPort,null);
+            return mediaEncoder.start(lsIp,lsVideoPort,lsAudioPort,null);
         }
 
         @Override
