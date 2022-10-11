@@ -5,7 +5,9 @@ import android.view.Surface;
 public class MediaEncoder {
 
      static {
-         System.loadLibrary("MediaEncoder");
+          if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+               System.loadLibrary("MediaEncoder");
+          }
      }
 
      public native Surface init(int width, int height, int framerate, int bitrate, int minFps);

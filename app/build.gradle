@@ -1,27 +1,33 @@
 apply plugin: 'com.android.application'
 
 android {
+    def platformType = getPlatform()
+
     compileSdkVersion 33
     buildToolsVersion '30.0.3'
     defaultConfig {
         applicationId "com.vrviu.streamer"
-        minSdkVersion 29
+        if(platformType == "kona") {
+            minSdkVersion 29
+
+            externalNativeBuild {
+                cmake {
+                    cppFlags "-frtti -fexceptions -std=c++11 -O3"
+                }
+            }
+
+            ndk {
+                abiFilters 'arm64-v8a', 'x86_64'
+            }
+        } else {
+            minSdkVersion 25
+        }
         targetSdkVersion 33
         versionCode 5
-        versionName "1.1.9"
-        externalNativeBuild {
-            cmake {
-                cppFlags "-frtti -fexceptions -std=c++11 -O3"
-            }
-        }
-
-        ndk {
-            abiFilters 'arm64-v8a', 'x86_64'
-        }
+        versionName "1.2.0"
     }
 
     signingConfigs {
-        def platformType = getPlatform()
         if(platformType == "kona") {
             release {
                 storeFile file("kona.keystore")
@@ -70,10 +76,12 @@ android {
         }
     }
 
-    externalNativeBuild {
-        cmake {
-            path file('src/main/cpp/CMakeLists.txt')
-            version '3.18.1'
+    if(platformType == "kona") {
+        externalNativeBuild {
+            cmake {
+                path file('src/main/cpp/CMakeLists.txt')
+                version '3.18.1'
+            }
         }
     }
 }

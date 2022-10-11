@@ -14,7 +14,6 @@ import android.os.FileObserver;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.util.Log;
-import android.view.Display;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
@@ -120,6 +119,7 @@ public final class ControlTcpClient extends TcpClient{
     private static boolean isCameraOn =false;
 
     private static final Point screenSize = new Point();
+    private static Handler handler = null;
     private final ClipboardManager clipboardManager;
     private final AudioManager audioManager;
     private final CameraManager cameraManager;
@@ -133,18 +133,13 @@ public final class ControlTcpClient extends TcpClient{
         this.isGameMode = isGameMode;
         this.controlTs=controlTs;
 
-        Handler handler = new Handler(context.getMainLooper());
+        handler = new Handler(context.getMainLooper());
         controlUtils = new ControlUtils(context);
 
         clipboardManager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
-        clipboardManager.addPrimaryClipChangedListener(onPrimaryClipChangedListener);
-
         audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        isMicOn = audioManager.getMode() == AudioManager.MODE_IN_COMMUNICATION;
-        audioManager.registerAudioRecordingCallback(audioRecordingCallback, handler);
-
         cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-        cameraManager.registerAvailabilityCallback(availabilityCallback, handler);
+        isMicOn = audioManager.getMode() == AudioManager.MODE_IN_COMMUNICATION;
 
         MonitorFiles(context,downloadDir,packageName);
 
@@ -174,13 +169,15 @@ public final class ControlTcpClient extends TcpClient{
         fileObserver = new FileObserver(file.getPath(), CLOSE_WRITE) {
             @Override
             public void onEvent(int event, String filename) {
-                if (SystemUtils.isTopPackage(packageName)) {
-                    new Thread(() -> sendFilePath(filename)).start();
-                } else {
-                    Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-                    intent.setData(Uri.fromFile(new File(file, filename)));
-                    context.sendBroadcast(intent);
-                    Log.d("llx", "refresh picture:" + filename);
+                if(filename!=null) {
+                    if (SystemUtils.isTopPackage(packageName)) {
+                        new Thread(() -> sendFilePath(filename)).start();
+                    } else {
+                        Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                        intent.setData(Uri.fromFile(new File(file, filename)));
+                        context.sendBroadcast(intent);
+                        Log.d("llx", "refresh picture:" + filename);
+                    }
                 }
             }
         };
@@ -233,16 +230,13 @@ public final class ControlTcpClient extends TcpClient{
 
     public void setDisplayRotation(Point realSize) {
         screenSize.set(realSize.x,realSize.y);
-        new Thread(() -> sendRotationChanged((byte) (screenSize.x>screenSize.y?0:1))).start();
+        new Thread(() -> sendRotationChanged((byte) (screenSize.x>=screenSize.y?0:1))).start();
     }
 
     @Override
     public void interrupt() {
         inputModeManager.Release();
         if(fileObserver!=null) fileObserver.stopWatching();
-        audioManager.unregisterAudioRecordingCallback(audioRecordingCallback);
-        cameraManager.unregisterAvailabilityCallback(availabilityCallback);
-        clipboardManager.removePrimaryClipChangedListener(onPrimaryClipChangedListener);
         super.interrupt();
     }
 
@@ -665,8 +659,11 @@ public final class ControlTcpClient extends TcpClient{
             dataInputStream = new DataInputStream(client.getInputStream());
             dataOutputStream = new DataOutputStream(client.getOutputStream());
 
+            clipboardManager.addPrimaryClipChangedListener(onPrimaryClipChangedListener);
+            audioManager.registerAudioRecordingCallback(audioRecordingCallback, handler);
+            cameraManager.registerAvailabilityCallback(availabilityCallback, handler);
+
             sendInputModeChanged(inputModeManager.getInputMode());
-            sendRotationChanged((byte) (screenSize.x>screenSize.y?0:1));
 
             byte[] header = new byte[4];
             while (true){
@@ -694,6 +691,10 @@ public final class ControlTcpClient extends TcpClient{
         } catch (Exception e) {
             Log.d("llx","loop Exception"+ e);
         } finally {
+            cameraManager.unregisterAvailabilityCallback(availabilityCallback);
+            audioManager.unregisterAudioRecordingCallback(audioRecordingCallback);
+            clipboardManager.removePrimaryClipChangedListener(onPrimaryClipChangedListener);
+
             try {
                 dataOutputStream.close();
             } catch (IOException e) {

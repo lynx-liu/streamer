@@ -1,5 +1,6 @@
 package com.vrviu.net;
 
+import android.os.Looper;
 import android.util.Log;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ public abstract class TcpServer extends Thread{
     @Override
     public void run() {
         super.run();
+        Looper.prepare();
         try {
             serverSocket = new ServerSocket(port);
             while (!isInterrupted()) {
@@ -37,6 +39,7 @@ public abstract class TcpServer extends Thread{
             }
         }
         Log.d("llx","TcpServer exit");
+        Looper.loop();
     }
 
     public abstract void onAccept(Socket client);

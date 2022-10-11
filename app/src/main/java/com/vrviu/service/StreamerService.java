@@ -60,6 +60,7 @@ public class StreamerService extends AccessibilityService {
 
             controlTcpClient = new ControlTcpClient(getApplicationContext(), ip, port, isGameMode, downloadDir, packageName, null);
             controlTcpClient.start();
+            controlTcpClient.setDisplayRotation(screenSize);
         }
         videoTcpServer.start();
     }
@@ -102,7 +103,7 @@ public class StreamerService extends AccessibilityService {
 
             if(iDisplay!=null) {
                 Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-                if(screenSize.x > screenSize.y) {
+                if(screenSize.x >= screenSize.y) {
                     SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0,videoWidth,videoHeight), 0);
                 } else {
                     SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0,videoHeight,videoWidth),3);
@@ -135,24 +136,27 @@ public class StreamerService extends AccessibilityService {
             controlTcpClient.start();
             controlTcpClient.setDisplayRotation(screenSize);
 
-            if(iDisplay!=null) {
-                mediaEncoder.stop();
-                SurfaceControl.destroyDisplay(iDisplay);
-                iDisplay = null;
-            }
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if(iDisplay!=null) {
+                    mediaEncoder.stop();
+                    SurfaceControl.destroyDisplay(iDisplay);
+                    iDisplay = null;
+                }
 
-            videoWidth = Math.max(width,height);
-            videoHeight= Math.min(width,height);
-            Rect screenRect = new Rect(0,0,screenSize.x,screenSize.y);
-            Surface surface = mediaEncoder.init(videoWidth,videoHeight,maxFps,bitrate*1000,minFps);
+                videoWidth = Math.max(width, height);
+                videoHeight = Math.min(width, height);
+                Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps);
 
-            iDisplay = SurfaceControl.createDisplay("streamer", true);
-            if(screenSize.x>screenSize.y) {
-                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0,0,videoWidth,videoHeight), 0);
-            } else {
-                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0,0,videoHeight,videoWidth), 3);
+                iDisplay = SurfaceControl.createDisplay("streamer", true);
+                if (screenSize.x >= screenSize.y) {
+                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                } else {
+                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
+                }
+                return mediaEncoder.start(lsIp, lsVideoPort, lsAudioPort, null);
             }
-            return mediaEncoder.start(lsIp,lsVideoPort,lsAudioPort,null);
+            return true;
         }
 
         @Override
@@ -166,24 +170,30 @@ public class StreamerService extends AccessibilityService {
             if(controlTcpClient!=null)
                 controlTcpClient.interrupt();
 
-            if(iDisplay!=null) {
-                mediaEncoder.stop();
-                SurfaceControl.destroyDisplay(iDisplay);
-                iDisplay = null;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if (iDisplay != null) {
+                    mediaEncoder.stop();
+                    SurfaceControl.destroyDisplay(iDisplay);
+                    iDisplay = null;
+                }
             }
         }
 
         @Override
         public void requestIdrFrame() {
             Log.d("llx","requestIdrFrame");
-            mediaEncoder.requestSyncFrame();
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                mediaEncoder.requestSyncFrame();
+            }
         }
 
         @Override
         public boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec) {
-            if(bitrate>0) {
-                mediaEncoder.setVideoBitrate(bitrate*1000);
-                return true;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if (bitrate > 0) {
+                    mediaEncoder.setVideoBitrate(bitrate * 1000);
+                    return true;
+                }
             }
             return false;
         }
