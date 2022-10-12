@@ -198,7 +198,7 @@ public class StreamerService extends AccessibilityService {
                 }
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
-                if(delayMillis>0) delayMillis = 1000/minFps;
+                if(minFps>0) delayMillis = 1000/minFps;
                 if(delayMillis>MAX_DELAY) delayMillis = MAX_DELAY;
                 else if(delayMillis<1000/maxFps) delayMillis = 1000/maxFps+1;
                 mhandler.sendEmptyMessageDelayed(MSG_UPDATE_VIEW,delayMillis);
