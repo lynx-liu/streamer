@@ -2,7 +2,6 @@ package com.vrviu.service;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
-import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
@@ -43,8 +42,6 @@ public class StreamerService extends AccessibilityService {
 
     private static int color = 0;
     private View floatView = null;
-    private WindowManager windowManager = null;
-    private WindowManager.LayoutParams layoutParams = null;
 
     private static int videoWidth = 1920;
     private static int videoHeight = 1080;
@@ -132,7 +129,7 @@ public class StreamerService extends AccessibilityService {
         }
     };
 
-    private Handler mhandler = new Handler(){
+    private final Handler mhandler = new Handler(){
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
@@ -140,15 +137,14 @@ public class StreamerService extends AccessibilityService {
                 case MSG_UPDATE_VIEW:
                     floatView.setBackgroundColor(color++);
                     mhandler.sendEmptyMessageDelayed(MSG_UPDATE_VIEW,delayMillis);
-                    windowManager.updateViewLayout(floatView,layoutParams);
                     break;
             }
         }
     };
 
     private void createFloatWindow() {
-        windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        layoutParams = new WindowManager.LayoutParams();
+        WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
         layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
         layoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
         layoutParams.format = PixelFormat.RGBA_8888;
