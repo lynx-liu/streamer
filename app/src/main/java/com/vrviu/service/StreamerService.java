@@ -7,6 +7,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
+import android.media.MediaCodecInfo;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -154,6 +155,21 @@ public class StreamerService extends AccessibilityService {
         windowManager.addView(floatView,layoutParams);
     }
 
+    private int getProfile(String profile) {
+        int ret = MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
+        switch (profile) {
+            case "baseline":
+                break;
+            case "main":
+                ret = MediaCodecInfo.CodecProfileLevel.AVCProfileMain;
+                break;
+            case "high":
+                ret = MediaCodecInfo.CodecProfileLevel.AVCProfileHigh;
+                break;
+        }
+        return ret;
+    }
+
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
         public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
@@ -184,7 +200,9 @@ public class StreamerService extends AccessibilityService {
                 videoWidth = Math.max(width, height);
                 videoHeight = Math.min(width, height);
                 Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264);
+
+                int profile = getProfile(videoCodecProfile);
+                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile);
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
                 if (screenSize.x >= screenSize.y) {
@@ -235,7 +253,15 @@ public class StreamerService extends AccessibilityService {
         @Override
         public boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec) {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                if (bitrate > 0) {
+                if(width!=-1||height!=-1||fps!=-1||frameInterval!=-1||profile!=-1||codec!=-1) {
+                    Log.d("llx","reconfigureEncode {"+(width!=-1?" width:"+width:"")+(height!=-1?" height:"+height:"")+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+(frameInterval!=-1?" frameInterval:"+frameInterval:"")+(profile!=-1?" profile:"+profile:"")+(orientation!=-1?" orientation:"+orientation:"")+(codec!=-1?" codec:"+codec:"")+" }");
+                    if (iDisplay != null) {
+                        mediaEncoder.stop();//停止编码，并断开串流后，LS会重新startStreaming，以此达到重置编码器参数的目的
+                        SurfaceControl.destroyDisplay(iDisplay);
+                        iDisplay = null;
+                    }
+                    return true;
+                } if (bitrate!=-1) {
                     mediaEncoder.setVideoBitrate(bitrate * 1000);
                     return true;
                 }

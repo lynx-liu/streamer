@@ -51,7 +51,7 @@ void VideoEncoder::setVideoBitrate(int bitrate) {
     AMediaFormat_delete(videoFormat);
 }
 
-ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitrate, int minFps, bool h264) {
+ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, bool h264, int profile) {
     if(width==0 || height==0)
         return nullptr;
 
@@ -66,10 +66,20 @@ ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitr
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, nWidth);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, nHeight);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,bitrate);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, framerate);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, maxFps);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, 1);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_FRAME_DELAY_US); // µs
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789); //COLOR_FormatSurface
+    AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, maxFps);
+    AMediaFormat_setInt32(videoFormat, "max-bframes", 0);//MediaFormat.KEY_MAX_B_FRAMES
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 2);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
+
+    if(avc) {
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, profile);
+    }else {
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, 0x01);//MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
+    }
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_LEVEL, 0x200);
 
     videoCodec = AMediaCodec_createEncoderByType(VIDEO_MIME);
     media_status_t videoConfigureStatus = AMediaCodec_configure(videoCodec,
