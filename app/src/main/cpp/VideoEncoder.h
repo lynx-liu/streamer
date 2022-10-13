@@ -58,11 +58,13 @@ private:
     int mVideoTrack;
     bool mIsRecording;
     int64_t timeoutUs = -1;
+    bool avc = false;
 
 private:
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
     static void* encode_thread(void *arg);
     inline void onH264Frame(uint8_t* bytes, size_t size, int64_t ts);
+    inline void onH265Frame(uint8_t* bytes, size_t size, int64_t ts);
     inline void onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts) const;
 
     static int connectSocket(const char *ip, int port);
@@ -72,7 +74,7 @@ public:
     ~VideoEncoder();
     void requestSyncFrame();
     void setVideoBitrate(int bitrate);
-    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps);
+    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264);
     bool start(const char *ip, int port, const char *filename);
     void release();
 };

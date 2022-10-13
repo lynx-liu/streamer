@@ -10,7 +10,7 @@ public class MediaEncoder {
           }
      }
 
-     public native Surface init(int width, int height, int framerate, int bitrate, int minFps);
+     public native Surface init(int width, int height, int framerate, int bitrate, int minFps, boolean h265);
      public native boolean start(String ip, int videoPort, int audioPort, String filename);
      public native boolean stop();
      public native void requestSyncFrame();

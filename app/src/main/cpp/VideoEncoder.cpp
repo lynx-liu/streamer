@@ -27,6 +27,7 @@ VideoEncoder::VideoEncoder()
     encode_tid = 0;
     m_sockfd = -1;
     mVideoTrack = -1;
+    avc = false;
     mIsRecording = false;
     memset(&spspps,0,sizeof(spspps));
 }
@@ -50,15 +51,16 @@ void VideoEncoder::setVideoBitrate(int bitrate) {
     AMediaFormat_delete(videoFormat);
 }
 
-ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitrate, int minFps) {
+ANativeWindow* VideoEncoder::init(int width, int height, int framerate, int bitrate, int minFps, bool h264) {
     if(width==0 || height==0)
         return nullptr;
 
     nWidth = std::max(width,height);
     nHeight = std::min(width,height);
     timeoutUs = minFps>0? 1000000L/minFps : -1;
+    avc = h264;
 
-    const char *VIDEO_MIME = "video/avc";
+    const char *VIDEO_MIME = avc?"video/avc":"video/hevc";
     AMediaFormat *videoFormat = AMediaFormat_new();
     AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, nWidth);
@@ -141,7 +143,12 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
         if (outIndex >= 0) {
             uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
             if (mVideoTrack >= 0 && info->size > 0 && info->presentationTimeUs > 0) {
-                onH264Frame(outputBuffer+info->offset, info->size, info->presentationTimeUs);
+                if(avc) {
+                    onH264Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
+                } else {
+                    onH265Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
+                }
+
                 if(mMuxer) {
                     AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
                 }
@@ -187,6 +194,26 @@ inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int frametype
 
     send(m_sockfd, &header, sizeof(header), 0);
     send(m_sockfd, bytes, size, 0);
+}
+
+inline void VideoEncoder::onH265Frame(uint8_t* bytes, size_t size, int64_t ts) {
+    int frametype=1;
+    int nalutype=(bytes[4]&0x7e)>>1;
+
+    if(nalutype==32){//vps sps pps
+        delete []spspps.data;
+        spspps.data = new uint8_t[size];
+        spspps.header.size = size;
+        memcpy(spspps.data,bytes,size);
+    } else if(nalutype == 19 || nalutype == 20) {//idr
+        auto* data = new uint8_t[spspps.header.size + size];
+        memcpy(data,spspps.data,spspps.header.size);
+        memcpy(data+spspps.header.size,bytes,size);
+        onEncodeFrame(data,spspps.header.size+size,frametype,true,ts);
+        delete [] data;
+    } else {
+        onEncodeFrame(bytes,size,frametype,false,ts);
+    }
 }
 
 inline void VideoEncoder::onH264Frame(uint8_t* bytes, size_t size, int64_t ts) {
