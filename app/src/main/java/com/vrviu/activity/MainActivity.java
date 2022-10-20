@@ -37,5 +37,6 @@ public class MainActivity extends Activity {
                 requestPermissions(new String[]{Manifest.permission.FOREGROUND_SERVICE}, 2);
             }
         }
+        finish();
     }
 }
