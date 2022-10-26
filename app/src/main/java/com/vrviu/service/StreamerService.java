@@ -62,7 +62,8 @@ public class StreamerService extends AccessibilityService {
         displayManager.registerDisplayListener(displayListener,null);
         Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation());
 
-        preferences = getSharedPreferences(getPackageName(),Context.MODE_PRIVATE);
+        Context deviceContext = createDeviceProtectedStorageContext();
+        preferences = deviceContext.getSharedPreferences(getPackageName(),Context.MODE_PRIVATE);
         if(preferences.getBoolean(startStreamingField,false)) {
             String ip = preferences.getString(lsIpField, defaultIP);
             int port = preferences.getInt(lsControlPortField, 5000);
