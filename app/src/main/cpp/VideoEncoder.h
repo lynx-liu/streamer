@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <sys/resource.h>
 #include <android/log.h>
 #include <android/native_window.h>
 #include <media/NdkMediaMuxer.h>

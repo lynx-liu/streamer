@@ -187,6 +187,10 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
 void* VideoEncoder::encode_thread(void *arg) {
     auto *videoEncoder =(VideoEncoder *)arg;
     auto *info = (AMediaCodecBufferInfo *) malloc(sizeof(AMediaCodecBufferInfo));
+
+    setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
+    setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
+
     while(videoEncoder->mIsRecording) {
         videoEncoder->dequeueOutput(info);
     }
