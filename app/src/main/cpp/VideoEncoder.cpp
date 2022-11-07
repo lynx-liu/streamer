@@ -75,7 +75,9 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
 
     if(bitrateMode==0) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 2);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
-    }//不设置，默认为VBR
+    } else {
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 1);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+    }
 
     if(avc) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, profile);
