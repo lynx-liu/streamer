@@ -75,7 +75,7 @@ public:
     ~VideoEncoder();
     void requestSyncFrame();
     void setVideoBitrate(int bitrate);
-    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264, int profile);
+    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264, int profile, int iFrameInterval, int bitrateMode);
     bool start(const char *ip, int port, const char *filename);
     void release();
 };

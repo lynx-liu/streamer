@@ -23,8 +23,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int maxFps, int bitrate, int minFps, jboolean h264, int profile) {
-    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, h264, profile);
+JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int maxFps, int bitrate, int minFps, jboolean h264, int profile, int iFrameInterval, int bitrateMode) {
+    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, h264, profile, iFrameInterval, bitrateMode);
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 

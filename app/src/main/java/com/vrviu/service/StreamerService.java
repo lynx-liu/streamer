@@ -203,7 +203,7 @@ public class StreamerService extends AccessibilityService {
                 Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
 
                 int profile = getProfile(videoCodecProfile);
-                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile);
+                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod, rateControlMode);
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
                 if (screenSize.x >= screenSize.y) {
