@@ -90,7 +90,7 @@ public class StreamerService extends AccessibilityService {
 
         @Override
         public void onDisplayChanged(int displayId) {
-            Display display = displayManager.getDisplay(displayId);
+            Display display = displayManager.getDisplay(0);
             display.getRealSize(screenSize);
 
             if(iDisplay!=null) {
