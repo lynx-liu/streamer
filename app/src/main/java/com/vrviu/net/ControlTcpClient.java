@@ -519,10 +519,10 @@ public final class ControlTcpClient extends TcpClient{
     private void onSensorInfo(final byte[] buf) {
 //      int samplePeriod = ((buf[0]&0xFF)<<8)|(buf[1]&0xFF);
         int sensorType = buf[2];
-//      int len = ((buf[3]&0xFF)<<8)|(buf[4]&0xFF);
-        float data0 = Float.intBitsToFloat(((buf[5]&0xFF)<<24)|((buf[6]&0xFF)<<16)|((buf[7]&0xFF)<<8)|(buf[8]&0xFF));
-        float data1 = Float.intBitsToFloat(((buf[9]&0xFF)<<24)|((buf[10]&0xFF)<<16)|((buf[11]&0xFF)<<8)|(buf[12]&0xFF));
-//      float data2 = Float.intBitsToFloat(((buf[13]&0xFF)<<24)|((buf[14]&0xFF)<<16)|((buf[15]&0xFF)<<8)|(buf[16]&0xFF));
+//      int len = buf[3]&0xFF;
+        float data0 = Float.intBitsToFloat(((buf[4]&0xFF)<<24)|((buf[5]&0xFF)<<16)|((buf[6]&0xFF)<<8)|(buf[7]&0xFF));
+        float data1 = Float.intBitsToFloat(((buf[8]&0xFF)<<24)|((buf[9]&0xFF)<<16)|((buf[10]&0xFF)<<8)|(buf[11]&0xFF));
+//      float data2 = Float.intBitsToFloat(((buf[12]&0xFF)<<24)|((buf[13]&0xFF)<<16)|((buf[14]&0xFF)<<8)|(buf[15]&0xFF));
 
         switch (sensorType) {
             case SENSOR_TYPE_ACCELEROMETER:
