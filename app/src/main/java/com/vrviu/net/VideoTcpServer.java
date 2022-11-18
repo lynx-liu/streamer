@@ -154,7 +154,7 @@ public abstract class VideoTcpServer extends TcpServer {
             while (!isInterrupted()){
                 dataInputStream.readFully(header);
 
-                int dataLen = ((header[0]&0xFF)<<24)|((header[1]&0xFF)<<16)|((header[2]&0xFF)<<8)|(header[3]&0xFF)-8;
+                int dataLen = (((header[0]&0xFF)<<24)|((header[1]&0xFF)<<16)|((header[2]&0xFF)<<8)|(header[3]&0xFF))-8;
                 byte version = header[4];
                 byte type = header[5];
 //              int extsize = ((header[6]&0xFF)<<8)|(header[7]&0xFF);
@@ -191,7 +191,7 @@ public abstract class VideoTcpServer extends TcpServer {
                                     response(type,seqnum, UNSUPPORT);
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            Log.e("llx",e.toString());
                         }
                     }
                     break;
@@ -202,7 +202,7 @@ public abstract class VideoTcpServer extends TcpServer {
             }
             dataInputStream.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e("llx",e.toString());
         } finally {
             try {
                 dataOutputStream.close();
