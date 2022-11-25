@@ -4,7 +4,7 @@ android {
     def platformType = getPlatform()
 
     compileSdkVersion 33
-    buildToolsVersion '30.0.3'
+    buildToolsVersion '30.0.4'
     defaultConfig {
         applicationId "com.vrviu.streamer"
         if(platformType == "kona") {

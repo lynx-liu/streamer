@@ -185,7 +185,6 @@ public abstract class InputModeManager {
                 switch (action) {
                     case Intent.ACTION_GET_CONTENT:
                     case Intent.ACTION_PICK:
-                    case Intent.ACTION_CHOOSER:
                         Log.d("llx", action);
                         onStartDocuments();
                         break;
