@@ -95,11 +95,7 @@ public class StreamerService extends AccessibilityService {
 
             if(iDisplay!=null) {
                 Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-                if(screenSize.x >= screenSize.y) {
-                    SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0,videoWidth,videoHeight), 0);
-                } else {
-                    SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0,videoHeight,videoWidth),3);
-                }
+                SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0,videoWidth,videoHeight), 0);
             }
 
             if(controlTcpClient!=null) {
@@ -173,11 +169,7 @@ public class StreamerService extends AccessibilityService {
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
-                if (screenSize.x >= screenSize.y) {
-                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
-                } else {
-                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
-                }
+                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
                 if(minFps>0) delayMillis = 1000/minFps;
