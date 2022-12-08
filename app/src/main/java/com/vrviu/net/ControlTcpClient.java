@@ -1,6 +1,5 @@
 package com.vrviu.net;
 
-import android.app.DownloadManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -19,7 +18,6 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.webkit.MimeTypeMap;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -159,6 +157,7 @@ public final class ControlTcpClient extends TcpClient{
     }
 
     private boolean MonitorFiles(final Context context, final String downloadDir, final String packageName) {
+        SystemUtils.clearImage(context,downloadDir);
         if(downloadDir==null || downloadDir.isEmpty())
             return false;
 
@@ -180,16 +179,6 @@ public final class ControlTcpClient extends TcpClient{
                         intent.setData(Uri.fromFile(imageFile));
                         context.sendBroadcast(intent);
                         Log.d("llx", "refresh picture:" + filename);
-
-                        try {
-                            String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(filename.substring(filename.lastIndexOf('.') + 1));
-                            if (mime == null) mime = "application/octet-stream";
-
-                            DownloadManager manager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
-                            manager.addCompletedDownload(filename, filename, true, mime, imageFile.getAbsolutePath(), imageFile.length(), false);
-                        } catch (Exception e) {
-                            Log.d("llx",e.toString());
-                        }
                     }
                 }
             }

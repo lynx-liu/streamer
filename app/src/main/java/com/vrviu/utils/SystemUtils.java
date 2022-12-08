@@ -2,10 +2,14 @@ package com.vrviu.utils;
 
 import android.app.IActivityController;
 import android.app.IProcessObserver;
+import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.IInterface;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
@@ -125,6 +129,46 @@ public final class SystemUtils {
             } else {
                 Log.d("llx", "topActivity: " + topActivity);
                 return topActivity.contains(packageName);
+            }
+        }
+        return false;
+    }
+
+    public static void clearImage(Context context, String path) {
+        if (path == null || path.isEmpty())
+            return;
+
+        File dir = new File(path);
+        if(!dir.exists() || !dir.isDirectory())
+            return;
+
+        Log.d("llx","clearImage:"+dir.getPath());
+        Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        for (File file : dir.listFiles()) {
+            if (isImageFile(file.getName())) {
+                file.delete();
+
+                intent.setData(Uri.fromFile(file));
+                context.sendBroadcast(intent);
+                Log.d("llx", "remove picture:" + file.getAbsolutePath());
+            }/* else if (file.isDirectory()) {
+                clearImage(context, file);
+            }*/
+        }
+
+        try {
+            Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm clear com.android.providers.media"});
+            Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm clear com.android.gallery3d"});
+        }catch (Exception e) {
+            Log.d("llx",e.toString());
+        }
+    }
+
+    public static boolean isImageFile(String filename) {
+        String[] extensions = new String[] {"jpg", "png", "gif","jpeg","bmp"};
+        for (String extenstion:extensions) {
+            if(filename.toLowerCase().endsWith(extenstion)) {
+                return true;
             }
         }
         return false;
