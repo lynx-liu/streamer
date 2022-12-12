@@ -17,6 +17,12 @@
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaFormat.h>
 
+#include <EGL/egl.h>
+#include <GLES/gl.h>
+#include <GLES/glext.h>
+#include <GLES3/gl3.h>
+#include <GLES3/gl3ext.h>
+
 #define REPEAT_FRAME_DELAY_US           50000 // repeat after 50ms
 
 #define NonIDR                          1
@@ -69,6 +75,8 @@ private:
     inline void onEncodeFrame(uint8_t *bytes,size_t size,int maxFps,bool keyframe,int64_t ts) const;
 
     static int connectSocket(const char *ip, int port);
+
+    bool eglCreateWindow(ANativeWindow *nativeWindow);
 
 public:
     VideoEncoder();

@@ -107,6 +107,50 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     return surface;
 }
 
+bool VideoEncoder::eglCreateWindow(ANativeWindow *nativeWindow) {
+    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if (display == EGL_NO_DISPLAY) {
+        LOGE("egl have not got display.");
+        return false;
+    }
+    if (eglInitialize(display, 0, 0) != EGL_TRUE) {
+        LOGE("egl Initialize failed.%d", eglGetError());
+        return false;
+    }
+
+    const EGLint atrribs[] = {
+            EGL_BUFFER_SIZE, 32,
+            EGL_ALPHA_SIZE, 8,
+            EGL_RED_SIZE, 8,
+            EGL_BLUE_SIZE, 8,
+            EGL_GREEN_SIZE, 8,
+            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+            EGL_NONE
+    };
+
+    EGLConfig eglConfig;
+    EGLint numOfEglConfig;
+    if (eglChooseConfig(display, atrribs, &eglConfig, 1, &numOfEglConfig) != EGL_TRUE) {
+        LOGE("egl choose config failed.%d,", eglGetError());
+        return false;
+    }
+    EGLint attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+    EGLContext gContext = eglCreateContext(display, eglConfig, nullptr, attributes);
+    if (!gContext) {
+        LOGE("eglCreateContext failed.");
+        return false;
+    }
+    ANativeWindow_acquire(nativeWindow);
+    ANativeWindow_setBuffersGeometry(nativeWindow, 0, 0, AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM);
+    // screen on
+    EGLSurface gSurface = eglCreateWindowSurface(display, eglConfig, nativeWindow, 0);
+    if (!gSurface) {
+        return false;
+    }
+    return eglMakeCurrent(display, gSurface, gSurface, gContext);
+}
+
 bool VideoEncoder::start(const char *ip, int port, const char *filename) {
     if(filename) {
         int fd = open(filename, O_CREAT | O_RDWR, 0666);
@@ -196,6 +240,7 @@ void* VideoEncoder::encode_thread(void *arg) {
     setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
     setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
 
+    videoEncoder->eglCreateWindow(videoEncoder->surface);
     while(videoEncoder->mIsRecording) {
         videoEncoder->dequeueOutput(info);
     }
