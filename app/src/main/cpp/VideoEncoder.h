@@ -18,6 +18,7 @@
 #include <media/NdkMediaFormat.h>
 
 #include <EGL/egl.h>
+#include <EGL/eglext.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
 #include <GLES3/gl3.h>
@@ -59,6 +60,12 @@ private:
     int m_sockfd = -1;
     ABuffer spspps;
 
+    EGLDisplay gDisplay = NULL;
+    EGLContext gContext = NULL;
+    EGLSurface gSurface = NULL;
+    GLuint texture = 0;
+    pthread_t gl_tid = 0;
+
     ANativeWindow *surface = NULL;
     AMediaCodec *videoCodec = NULL;
     AMediaMuxer *mMuxer = NULL;
@@ -77,6 +84,9 @@ private:
     static int connectSocket(const char *ip, int port);
 
     bool eglCreateWindow(ANativeWindow *nativeWindow);
+    void drawFrame();
+    void eglReleqaseWindow();
+    static void* gl_thread(void *arg);
 
 public:
     VideoEncoder();
