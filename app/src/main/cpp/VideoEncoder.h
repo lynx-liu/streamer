@@ -17,12 +17,7 @@
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaFormat.h>
 
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
-#include <GLES/gl.h>
-#include <GLES/glext.h>
-#include <GLES3/gl3.h>
-#include <GLES3/gl3ext.h>
+#include "Overlay.h"
 
 #define REPEAT_FRAME_DELAY_US           50000 // repeat after 50ms
 
@@ -60,11 +55,7 @@ private:
     int m_sockfd = -1;
     ABuffer spspps;
 
-    EGLDisplay gDisplay = NULL;
-    EGLContext gContext = NULL;
-    EGLSurface gSurface = NULL;
-    GLuint texture = 0;
-    pthread_t gl_tid = 0;
+    Overlay overlay;
 
     ANativeWindow *surface = NULL;
     AMediaCodec *videoCodec = NULL;
@@ -82,11 +73,6 @@ private:
     inline void onEncodeFrame(uint8_t *bytes,size_t size,int maxFps,bool keyframe,int64_t ts) const;
 
     static int connectSocket(const char *ip, int port);
-
-    bool eglCreateWindow(ANativeWindow *nativeWindow);
-    void drawFrame();
-    void eglReleqaseWindow();
-    static void* gl_thread(void *arg);
 
 public:
     VideoEncoder();

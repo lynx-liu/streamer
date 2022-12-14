@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
 import android.hardware.display.DisplayManager;
 import android.media.MediaCodecInfo;
 import android.os.Handler;
@@ -167,6 +168,14 @@ public class StreamerService extends AccessibilityService {
 
                 int profile = getProfile(videoCodecProfile);
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
+
+                SurfaceTexture surfaceTexture = new SurfaceTexture(1);
+                surfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
+                    @Override
+                    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+                        Log.d("llx","onFrameAvailable");
+                    }
+                });
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
                 SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);

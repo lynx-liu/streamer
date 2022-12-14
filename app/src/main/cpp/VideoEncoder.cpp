@@ -104,106 +104,8 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     }
 
     LOGI("init videoCodec success");
-    eglCreateWindow(surface);
+    overlay.start(surface);
     return surface;
-}
-
-bool VideoEncoder::eglCreateWindow(ANativeWindow *nativeWindow) {
-    gDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    if (gDisplay == EGL_NO_DISPLAY) {
-        LOGE("egl have not got display.");
-        return false;
-    }
-
-    EGLint majorVersion, minorVersion;
-    if (eglInitialize(gDisplay, &majorVersion, &minorVersion) != EGL_TRUE) {
-        LOGE("egl Initialize failed.%d", eglGetError());
-        return false;
-    }
-    LOGI("Initialized EGL v%d.%d", majorVersion, minorVersion);
-
-    const EGLint atrribs[] = {
-            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-            EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-            EGL_RECORDABLE_ANDROID, 1,
-            EGL_RED_SIZE, 8,
-            EGL_BLUE_SIZE, 8,
-            EGL_GREEN_SIZE, 8,
-            //no alpha
-            EGL_NONE
-    };
-
-    EGLConfig eglConfig;
-    EGLint numOfEglConfig = 0;
-    if (eglChooseConfig(gDisplay, atrribs, &eglConfig, 1, &numOfEglConfig) != EGL_TRUE) {
-        LOGE("egl choose config failed.%d,", eglGetError());
-        return false;
-    }
-
-    EGLint attributes[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
-    gContext = eglCreateContext(gDisplay, eglConfig, EGL_NO_CONTEXT, attributes);
-    if (!gContext) {
-        LOGE("eglCreateContext failed.");
-        return false;
-    }
-
-    gSurface = eglCreateWindowSurface(gDisplay, eglConfig, nativeWindow, NULL);
-    if (gSurface==EGL_NO_SURFACE) {
-        LOGE("eglCreateWindowSurface error: %#x", eglGetError());
-        return false;
-    }
-    return true;
-}
-
-void VideoEncoder::drawFrame() {
-    // Just fill the screen with a color.
-    glClearColor(0.0f, 1.0f, 0.0f, 1.0f);//dark gray for background
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    eglSwapBuffers(gDisplay,gSurface);
-}
-
-void* VideoEncoder::gl_thread(void *arg) {
-    auto *videoEncoder =(VideoEncoder *)arg;
-
-    setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
-    setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
-
-    if(!eglMakeCurrent(videoEncoder->gDisplay, videoEncoder->gSurface, videoEncoder->gSurface, videoEncoder->gContext)) {
-        LOGE("eglMakeCurrent failed: %#x", eglGetError());
-    }
-
-    glViewport(0,0,ANativeWindow_getWidth(videoEncoder->surface),ANativeWindow_getHeight(videoEncoder->surface));
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
-    glGenTextures(1, &videoEncoder->texture);
-    glBindTexture(GL_TEXTURE_2D, videoEncoder->texture);
-
-    while(videoEncoder->mIsRecording) {
-        videoEncoder->drawFrame();
-        usleep(16*1000);
-    }
-
-    videoEncoder->eglReleqaseWindow();
-    LOGI("gl_thread exit");
-    return nullptr;
-}
-
-void VideoEncoder::eglReleqaseWindow() {
-    if(gDisplay!=EGL_NO_DISPLAY) {
-        eglMakeCurrent(gDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-
-        if(gContext!=EGL_NO_CONTEXT) {
-            eglDestroyContext(gDisplay, gContext);
-            gContext = EGL_NO_CONTEXT;
-        }
-
-        if(gSurface!=EGL_NO_SURFACE) {
-            eglDestroySurface(gSurface,gSurface);
-            gSurface = EGL_NO_SURFACE;
-        }
-        gDisplay = EGL_NO_DISPLAY;
-    }
 }
 
 bool VideoEncoder::start(const char *ip, int port, const char *filename) {
@@ -238,9 +140,6 @@ bool VideoEncoder::start(const char *ip, int port, const char *filename) {
         LOGE("video encode_thread failed!");
         release();
         return false;
-    }
-    if(pthread_create(&gl_tid, nullptr, gl_thread, this)!=0) {
-        LOGI("create gl_thread failed!");
     }
     LOGI("video start success");
     return true;
@@ -403,12 +302,6 @@ int VideoEncoder::connectSocket(const char *ip, int port) {
 
 void VideoEncoder::release() {
     mIsRecording = false;
-    if(gl_tid!=0) {
-        LOGI("gl_thread join!!!");
-        pthread_join(gl_tid, nullptr);
-        gl_tid = 0;
-    }
-
     if(encode_tid!=0) {
         LOGI("video encode pthread_join!!!");
         pthread_join(encode_tid, nullptr);
