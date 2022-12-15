@@ -17,8 +17,6 @@
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaFormat.h>
 
-#include "Overlay.h"
-
 #define REPEAT_FRAME_DELAY_US           50000 // repeat after 50ms
 
 #define NonIDR                          1

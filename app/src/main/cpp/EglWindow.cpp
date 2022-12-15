@@ -5,12 +5,7 @@
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
 bool EglWindow::createWindow(ANativeWindow *nativeWindow) {
-    if (mEglSurface != EGL_NO_SURFACE) {
-        LOGE("surface already created");
-        return false;
-    }
-
-    if (!eglSetupContext(false)) {
+    if (!eglSetupContext(mEglContext)) {
         return false;
     }
 
@@ -29,12 +24,7 @@ bool EglWindow::createWindow(ANativeWindow *nativeWindow) {
 }
 
 bool EglWindow::createPbuffer(int width, int height) {
-    if (mEglSurface != EGL_NO_SURFACE) {
-        LOGE("surface already created");
-        return false;
-    }
-
-    if (!eglSetupContext(true)) {
+    if (!eglSetupContext(EGL_NO_CONTEXT)) {
         return false;
     }
 
@@ -63,7 +53,7 @@ bool EglWindow::makeCurrent() const {
     return true;
 }
 
-bool EglWindow::eglSetupContext(bool forPbuffer) {
+bool EglWindow::eglSetupContext(EGLContext share_context) {
     mEglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     if (mEglDisplay == EGL_NO_DISPLAY) {
         LOGE("eglGetDisplay failed: %#x", eglGetError());
@@ -99,7 +89,7 @@ bool EglWindow::eglSetupContext(bool forPbuffer) {
             EGL_NONE
     };
     result = eglChooseConfig(mEglDisplay,
-            forPbuffer ? pbufferConfigAttribs : windowConfigAttribs,
+                             share_context==EGL_NO_CONTEXT ? pbufferConfigAttribs : windowConfigAttribs,
             &mEglConfig, 1, &numConfigs);
     if (result != EGL_TRUE) {
         LOGE("eglChooseConfig error: %#x", eglGetError());
@@ -110,8 +100,7 @@ bool EglWindow::eglSetupContext(bool forPbuffer) {
         EGL_CONTEXT_CLIENT_VERSION, 2,
         EGL_NONE
     };
-    mEglContext = eglCreateContext(mEglDisplay, mEglConfig, EGL_NO_CONTEXT,
-            contextAttribs);
+    mEglContext = eglCreateContext(mEglDisplay, mEglConfig, share_context, contextAttribs);
     if (mEglContext == EGL_NO_CONTEXT) {
         LOGE("eglCreateContext error: %#x", eglGetError());
         return false;

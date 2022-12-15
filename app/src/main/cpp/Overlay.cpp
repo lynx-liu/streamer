@@ -18,6 +18,11 @@ void Overlay::set_sharp_alpha(float alpha) {
 }
 
 bool Overlay::start(ANativeWindow *nativeWindow) {
+    int width = ANativeWindow_getWidth(nativeWindow);
+    int height = ANativeWindow_getHeight(nativeWindow);
+    mEglWindow.createPbuffer(width, height);
+    mEglWindow.makeCurrent();
+
     if (!mEglWindow.createWindow(nativeWindow)) {
         return false;
     }
@@ -131,6 +136,9 @@ void Overlay::processFrame_l() {
         glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     }
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES,mExtTextureName);
 
     int width = mEglWindow.getWidth();
     int height = mEglWindow.getHeight();

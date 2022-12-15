@@ -180,11 +180,11 @@ public class StreamerService extends AccessibilityService {
                 int profile = getProfile(videoCodecProfile);
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
 
-                eglRender = new EGLRender(surface, videoWidth, videoHeight, maxFps);
+                eglRender = new EGLRender(surface, videoWidth, videoHeight, mhandler);
                 eglRender.start();
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
-                SurfaceControl.setDisplaySurface(iDisplay, eglRender.getDecodeSurface(), screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                SurfaceControl.setDisplaySurface(iDisplay, eglRender.getSurface(), screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
                 if(minFps>0) delayMillis = 1000/minFps;

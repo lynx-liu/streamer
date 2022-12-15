@@ -56,7 +56,7 @@ private:
     EglWindow& operator=(const EglWindow&);
 
     // Init display, create config and context.
-    bool eglSetupContext(bool forPbuffer);
+    bool eglSetupContext(EGLContext share_context);
     void eglRelease();
 
     // Basic EGL goodies.
