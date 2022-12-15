@@ -55,8 +55,6 @@ private:
     int m_sockfd = -1;
     ABuffer spspps;
 
-    Overlay overlay;
-
     ANativeWindow *surface = NULL;
     AMediaCodec *videoCodec = NULL;
     AMediaMuxer *mMuxer = NULL;

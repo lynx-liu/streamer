@@ -104,7 +104,6 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     }
 
     LOGI("init videoCodec success");
-    overlay.start(surface);
     return surface;
 }
 

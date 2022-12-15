@@ -2,6 +2,7 @@ package com.vrviu.service;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -18,6 +19,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 
+import com.vrviu.opengl.EGLRender;
 import com.vrviu.streamer.BuildConfig;
 import com.vrviu.net.ControlTcpClient;
 import com.vrviu.net.VideoTcpServer;
@@ -39,6 +41,7 @@ public class StreamerService extends AccessibilityService {
     private static int videoWidth = 1920;
     private static int videoHeight = 1080;
     private IBinder iDisplay = null;
+    private EGLRender eglRender = null;
     private DisplayManager displayManager = null;
     private static final Point screenSize = new Point();
     private final MediaEncoder mediaEncoder = new MediaEncoder();
@@ -169,16 +172,22 @@ public class StreamerService extends AccessibilityService {
                 int profile = getProfile(videoCodecProfile);
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
 
-                SurfaceTexture surfaceTexture = new SurfaceTexture(1);
-                surfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
+                eglRender = new EGLRender(surface, videoWidth, videoHeight, maxFps);
+                eglRender.setCallBack(new EGLRender.onFrameCallBack() {
                     @Override
-                    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-                        Log.d("llx","onFrameAvailable");
+                    public void onUpdate() {
+
+                    }
+
+                    @Override
+                    public void onCutScreen(Bitmap bitmap) {
+
                     }
                 });
+                eglRender.start();
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
-                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                SurfaceControl.setDisplaySurface(iDisplay, eglRender.getDecodeSurface(), screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
                 if(minFps>0) delayMillis = 1000/minFps;
@@ -201,6 +210,7 @@ public class StreamerService extends AccessibilityService {
                     mediaEncoder.stop();
                     SurfaceControl.destroyDisplay(iDisplay);
                     iDisplay = null;
+                    eglRender.interrupt();
                 }
             }
         }
