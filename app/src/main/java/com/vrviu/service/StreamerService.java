@@ -78,6 +78,14 @@ public class StreamerService extends AccessibilityService {
             controlTcpClient.interrupt();
         videoTcpServer.interrupt();
         displayManager.unregisterDisplayListener(displayListener);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (iDisplay != null) {
+                mediaEncoder.stop();
+                SurfaceControl.destroyDisplay(iDisplay);
+                iDisplay = null;
+                eglRender.interrupt();
+            }
+        }
         super.onDestroy();
     }
 
@@ -173,17 +181,6 @@ public class StreamerService extends AccessibilityService {
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
 
                 eglRender = new EGLRender(surface, videoWidth, videoHeight, maxFps);
-                eglRender.setCallBack(new EGLRender.onFrameCallBack() {
-                    @Override
-                    public void onUpdate() {
-
-                    }
-
-                    @Override
-                    public void onCutScreen(Bitmap bitmap) {
-
-                    }
-                });
                 eglRender.start();
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
