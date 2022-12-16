@@ -97,7 +97,6 @@ static const char *kExtSharpFragmentShader =
   "    vec2 offset6 = vec2(-1.0 / xx, 1.0 / yy);\n"
   "    vec2 offset7 = vec2(0.0 / xx, 1.0 / yy);\n"
   "    vec2 offset8 = vec2(1.0 / xx, 1.0 / yy);\n"
-  "    vec4 sum;\n"
   "    vec4 cTemp0 = texture2D(uTexture, vTextureCoord.st + offset0.xy);\n"
   "    vec4 cTemp1 = texture2D(uTexture, vTextureCoord.st + offset1.xy);\n"
   "    vec4 cTemp2 = texture2D(uTexture, vTextureCoord.st + offset2.xy);\n"
@@ -107,7 +106,7 @@ static const char *kExtSharpFragmentShader =
   "    vec4 cTemp6 = texture2D(uTexture, vTextureCoord.st + offset6.xy);\n"
   "    vec4 cTemp7 = texture2D(uTexture, vTextureCoord.st + offset7.xy);\n"
   "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord.st + offset8.xy);\n"
-  "    sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*alpha;\n"
+  "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*alpha;\n"
 //  "    gl_FragColor = vec4(tex.r, tex.g, tex.b, 1.0);\n"
   "    gl_FragColor = vec4(sum.r, sum.g, sum.b, 1.0);\n"
   "}\n";

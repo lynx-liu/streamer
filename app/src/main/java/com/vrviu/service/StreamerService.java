@@ -2,11 +2,9 @@ package com.vrviu.service;
 
 import android.accessibilityservice.AccessibilityService;
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
-import android.graphics.SurfaceTexture;
 import android.hardware.display.DisplayManager;
 import android.media.MediaCodecInfo;
 import android.os.Handler;

@@ -47,35 +47,36 @@ public  class TextureRender {
                     "}\n";
 */
     private static final String FRAGMENT_SHADER =
-            "#extension GL_OES_EGL_image_external : require\n" +
-            "precision mediump float;\n"+//给出默认的浮点精度
-            "varying vec2 vTextureCoord;\n"+//从顶点着色器传递过来的纹理坐标
-            "uniform samplerExternalOES sTexture;\n"+//纹理内容数据
-            "void main() {\n"+//给出卷积内核中各个元素对应像素相对于待处理像素的纹理坐标偏移量
-            "   vec2 offset0=vec2(-1.0,-1.0); vec2 offset1=vec2(0.0,-1.0); vec2 offset2=vec2(1.0,-1.0);\n"+
-            "   vec2 offset3=vec2(-1.0,0.0); vec2 offset4=vec2(0.0,0.0); vec2 offset5=vec2(1.0,0.0);\n"+
-            "   vec2 offset6=vec2(-1.0,1.0); vec2 offset7=vec2(0.0,1.0); vec2 offset8=vec2(1.0,1.0);\n"+
-	        "   const float scaleFactor =0.6;\n"+//给出最终求和时的加权因子(为调整亮度)
-            //卷积内核中各个位置的值
-            "   float kernelValue0 = 0.0; float kernelValue1 = -1.0; float kernelValue2 = 0.0;\n"+
-            "   float kernelValue3 = -1.0; float kernelValue4 = 5.0; float kernelValue5 = -1.0;\n"+
-            "   float kernelValue6 = 0.0; float kernelValue7 = -1.0; float kernelValue8 = 0.0;\n"+
-            "   vec4 sum;\n"+//最终的颜色和
-            //获取卷积内核中各个元素对应像素的颜色值
-            "   vec4 cTemp0,cTemp1,cTemp2,cTemp3,cTemp4,cTemp5,cTemp6,cTemp7,cTemp8;\n"+
-            "   cTemp0=texture2D(sTexture, vTextureCoord.st + offset0.xy/512.0);\n"+
-            "   cTemp1=texture2D(sTexture, vTextureCoord.st + offset1.xy/512.0);\n"+
-            "   cTemp2=texture2D(sTexture, vTextureCoord.st + offset2.xy/512.0);\n"+
-            "   cTemp3=texture2D(sTexture, vTextureCoord.st + offset3.xy/512.0);\n"+
-            "   cTemp4=texture2D(sTexture, vTextureCoord.st + offset4.xy/512.0);\n"+
-            "   cTemp5=texture2D(sTexture, vTextureCoord.st + offset5.xy/512.0);\n"+
-            "   cTemp6=texture2D(sTexture, vTextureCoord.st + offset6.xy/512.0);\n"+
-            "   cTemp7=texture2D(sTexture, vTextureCoord.st + offset7.xy/512.0);\n"+
-            "   cTemp8=texture2D(sTexture, vTextureCoord.st + offset8.xy/512.0);\n"+
-            //颜色求和
-            "   sum =kernelValue0*cTemp0+kernelValue1*cTemp1+kernelValue2*cTemp2+kernelValue3*cTemp3+kernelValue4*cTemp4+kernelValue5*cTemp5+kernelValue6*cTemp6+kernelValue7*cTemp7+kernelValue8*cTemp8;\n"+
-            "   gl_FragColor = sum * scaleFactor;\n"+ //进行亮度加权后将最终颜色传递给管线
-            "}\n";
+        "#extension GL_OES_EGL_image_external : require\n"+
+                "precision mediump float;\n"+
+                "varying vec2 vTextureCoord;\n"+
+                "uniform samplerExternalOES uTexture;\n"+
+                "uniform vec2 mTextureSize;\n"+
+                "uniform float alpha;\n"+
+                "void main() {\n"+
+                "    float xx = 1920.0;\n"+
+                "    float yy = 1080.0;\n"+
+                "    vec2 offset0 = vec2(-1.0 / xx, -1.0 / yy);\n"+
+                "    vec2 offset1 = vec2(0.0 / xx, -1.0 / yy);\n"+
+                "    vec2 offset2 = vec2(1.0 / xx, -1.0 / yy);\n"+
+                "    vec2 offset3 = vec2(-1.0 / xx, 0.0 / yy);\n"+
+                "    vec2 offset4 = vec2(0.0 / xx, 0.0 / yy);\n"+
+                "    vec2 offset5 = vec2(1.0 / xx, 0.0 / yy);\n"+
+                "    vec2 offset6 = vec2(-1.0 / xx, 1.0 / yy);\n"+
+                "    vec2 offset7 = vec2(0.0 / xx, 1.0 / yy);\n"+
+                "    vec2 offset8 = vec2(1.0 / xx, 1.0 / yy);\n"+
+                "    vec4 cTemp0 = texture2D(uTexture, vTextureCoord.st + offset0.xy);\n"+
+                "    vec4 cTemp1 = texture2D(uTexture, vTextureCoord.st + offset1.xy);\n"+
+                "    vec4 cTemp2 = texture2D(uTexture, vTextureCoord.st + offset2.xy);\n"+
+                "    vec4 cTemp3 = texture2D(uTexture, vTextureCoord.st + offset3.xy);\n"+
+                "    vec4 cTemp4 = texture2D(uTexture, vTextureCoord.st + offset4.xy);\n"+
+                "    vec4 cTemp5 = texture2D(uTexture, vTextureCoord.st + offset5.xy);\n"+
+                "    vec4 cTemp6 = texture2D(uTexture, vTextureCoord.st + offset6.xy);\n"+
+                "    vec4 cTemp7 = texture2D(uTexture, vTextureCoord.st + offset7.xy);\n"+
+                "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord.st + offset8.xy);\n"+
+                "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*5.0;\n"+
+                "    gl_FragColor = vec4(sum.r, sum.g, sum.b, 1.0);\n"+
+                "}\n";
 
     private int mProgram = 0;
     private int mTextureID = -1;
@@ -105,10 +106,6 @@ public  class TextureRender {
         GLES20.glGenTextures(1, texture, 0);
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,texture[0]);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
         return texture[0];
     }
 
