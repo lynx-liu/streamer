@@ -70,20 +70,23 @@ public class StreamerService extends AccessibilityService {
 
     }
 
+    void releaseStreaming() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            if (iDisplay != null) {
+                mediaEncoder.stop();
+                SurfaceControl.destroyDisplay(iDisplay);
+                iDisplay = null;
+            }
+        }
+    }
+
     @Override
     public void onDestroy() {
         if(controlTcpClient!=null)
             controlTcpClient.interrupt();
         videoTcpServer.interrupt();
         displayManager.unregisterDisplayListener(displayListener);
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            if (iDisplay != null) {
-                mediaEncoder.stop();
-                SurfaceControl.destroyDisplay(iDisplay);
-                iDisplay = null;
-                eglRender.interrupt();
-            }
-        }
+        releaseStreaming();
         super.onDestroy();
     }
 
@@ -156,21 +159,16 @@ public class StreamerService extends AccessibilityService {
 
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
-        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
+        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir, float sharp) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
             if(controlTcpClient!=null) controlTcpClient.interrupt();
             controlTcpClient = new ControlTcpClient(getApplicationContext(),lsIp,lsControlPort,isGameMode,downloadDir,packageName,null);
             controlTcpClient.start();
             controlTcpClient.setDisplayRotation(screenSize);
+            releaseStreaming();
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                if(iDisplay!=null) {
-                    mediaEncoder.stop();
-                    SurfaceControl.destroyDisplay(iDisplay);
-                    iDisplay = null;
-                }
-
                 videoWidth = Math.max(width, height);
                 videoHeight = Math.min(width, height);
                 Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
@@ -178,11 +176,13 @@ public class StreamerService extends AccessibilityService {
                 int profile = getProfile(videoCodecProfile);
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
 
-                eglRender = new EGLRender(surface, videoWidth, videoHeight, mhandler);
-                eglRender.start();
+                if(sharp>0) {
+                    eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, mhandler);
+                    surface = eglRender.getSurface();
+                }
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
-                SurfaceControl.setDisplaySurface(iDisplay, eglRender.getSurface(), screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
                 if(minFps>0) delayMillis = 1000/minFps;
@@ -199,15 +199,7 @@ public class StreamerService extends AccessibilityService {
             if(controlTcpClient!=null)
                 controlTcpClient.interrupt();
             mhandler.removeMessages(MSG_UPDATE_VIEW);
-
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                if (iDisplay != null) {
-                    mediaEncoder.stop();
-                    SurfaceControl.destroyDisplay(iDisplay);
-                    iDisplay = null;
-                    eglRender.interrupt();
-                }
-            }
+            releaseStreaming();
         }
 
         @Override
@@ -223,11 +215,7 @@ public class StreamerService extends AccessibilityService {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 if(width!=-1||height!=-1||fps!=-1||frameInterval!=-1||profile!=-1||codec!=-1) {
                     Log.d("llx","reconfigureEncode {"+(width!=-1?" width:"+width:"")+(height!=-1?" height:"+height:"")+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+(frameInterval!=-1?" frameInterval:"+frameInterval:"")+(profile!=-1?" profile:"+profile:"")+(orientation!=-1?" orientation:"+orientation:"")+(codec!=-1?" codec:"+codec:"")+" }");
-                    if (iDisplay != null) {
-                        mediaEncoder.stop();//停止编码，并断开串流后，LS会重新startStreaming，以此达到重置编码器参数的目的
-                        SurfaceControl.destroyDisplay(iDisplay);
-                        iDisplay = null;
-                    }
+                    releaseStreaming();
                     return true;
                 } if (bitrate!=-1) {
                     mediaEncoder.setVideoBitrate(bitrate * 1000);

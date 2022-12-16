@@ -34,7 +34,8 @@ public abstract class VideoTcpServer extends TcpServer {
                                            int maxFps, int minFps, int width, int height,
                                            int bitrate, int orientationType, int enableSEI,
                                            int rateControlMode, int gameMode,
-                                           String packageName, String downloadDir);
+                                           String packageName, String downloadDir,
+                                           float sharp);
     public abstract void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl);
     public abstract void requestIdrFrame();
     public abstract boolean reconfigureEncode(int width,int height,int bitrate,int fps,int frameInterval,int profile,int orientation,int codec);
@@ -88,8 +89,9 @@ public abstract class VideoTcpServer extends TcpServer {
             int gameMode = JsonUtils.get(jsonObject, "gameMode", 0);
             String packageName = JsonUtils.get(jsonObject, "packageName", null);
             String downloadDir = JsonUtils.get(jsonObject, "downloadDir", null);
+            float sharp = (float) JsonUtils.get(jsonObject, "sharp",0.0);
 
-            return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType,enableSEI,rateControlMode,gameMode,packageName,downloadDir);
+            return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType,enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp);
         } catch (Exception e) {
             e.printStackTrace();
         }

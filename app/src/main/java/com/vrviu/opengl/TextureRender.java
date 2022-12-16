@@ -52,10 +52,10 @@ public  class TextureRender {
                 "varying vec2 vTextureCoord;\n"+
                 "uniform samplerExternalOES uTexture;\n"+
                 "uniform vec2 mTextureSize;\n"+
-                "uniform float alpha;\n"+
+                "uniform float sharpLevel;\n"+
                 "void main() {\n"+
-                "    float xx = 1920.0;\n"+
-                "    float yy = 1080.0;\n"+
+                "    float xx = float(mTextureSize.x);\n"+
+                "    float yy = float(mTextureSize.y);\n"+
                 "    vec2 offset0 = vec2(-1.0 / xx, -1.0 / yy);\n"+
                 "    vec2 offset1 = vec2(0.0 / xx, -1.0 / yy);\n"+
                 "    vec2 offset2 = vec2(1.0 / xx, -1.0 / yy);\n"+
@@ -74,7 +74,7 @@ public  class TextureRender {
                 "    vec4 cTemp6 = texture2D(uTexture, vTextureCoord.st + offset6.xy);\n"+
                 "    vec4 cTemp7 = texture2D(uTexture, vTextureCoord.st + offset7.xy);\n"+
                 "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord.st + offset8.xy);\n"+
-                "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*5.0;\n"+
+                "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*sharpLevel;\n"+
                 "    gl_FragColor = vec4(sum.r, sum.g, sum.b, 1.0);\n"+
                 "}\n";
 
@@ -84,12 +84,21 @@ public  class TextureRender {
     private int muSTMatrixHandle;
     private int maPositionHandle;
     private int maTextureHandle;
+    private int mSharpHandle;
+    private int mTextureSizeHandle;
+    private float mSharpLevel;
+    private float[] textureSize;
+    private FloatBuffer TEXTURE_SIZE;
 
     private float[] mMVPMatrix = new float[16];
     private float[] mSTMatrix = new float[16];
 
-    public TextureRender() {
+    public TextureRender(int width, int height, float sharpLevel) {
         Matrix.setIdentityM(mSTMatrix, 0);
+
+        mSharpLevel = sharpLevel;
+        textureSize = new float[]{width,height};
+        TEXTURE_SIZE = GlUtil.createFloatBuffer(textureSize);
 
         mTextureID = genTextures();
         mProgram = GlUtil.createProgram(VERTEX_SHADER, FRAGMENT_SHADER);
@@ -98,6 +107,9 @@ public  class TextureRender {
             maTextureHandle = GLES20.glGetAttribLocation(mProgram, "aTextureCoord");
             muMVPMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uMVPMatrix");
             muSTMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uSTMatrix");
+
+            mSharpHandle = GLES20.glGetUniformLocation(mProgram, "sharpLevel");
+            mTextureSizeHandle = GLES20.glGetUniformLocation(mProgram, "mTextureSize");
         }
     }
 
@@ -123,6 +135,8 @@ public  class TextureRender {
         Matrix.setIdentityM(mMVPMatrix, 0);
         GLES20.glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix, 0);
         GLES20.glUniformMatrix4fv(muSTMatrixHandle, 1, false, mSTMatrix, 0);
+        GLES20.glUniform1f(mSharpHandle, mSharpLevel);
+        GLES20.glUniform2fv(mTextureSizeHandle, 1, TEXTURE_SIZE);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 
         GLES20.glDisableVertexAttribArray(maPositionHandle);
