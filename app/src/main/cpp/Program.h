@@ -11,11 +11,7 @@
 
 class Program {
 public:
-    enum ProgramType { PROGRAM_UNKNOWN=0, PROGRAM_EXTERNAL_TEXTURE,
-            PROGRAM_TEXTURE_2D, PROGRAM_EXTERNAL_TEXTURE_SHARP};
-
     Program() :
-        mProgramType(PROGRAM_UNKNOWN),
         mProgram(0),
         maPositionLoc(0),
         maTextureCoordLoc(0),
@@ -25,11 +21,9 @@ public:
         {}
     ~Program() { release(); }
 
-    bool setup(ProgramType type);
+    bool setup();
     void release();
 
-    // Blit the specified texture to { x, y, x+w, y+h }.  Inverts the content if "invert" is set.
-    bool blit(GLuint texName, const float* texMatrix, int32_t x, int32_t y, int32_t w, int32_t h, bool invert = false) const;
     bool drawSharp(GLuint texName, const float* texMatrix, int32_t x, int32_t y, int32_t w, int32_t h, bool invert = false) const;
     void setSharpAlpha(float sharpAlpha);
 
@@ -44,7 +38,6 @@ private:
     static bool compileShader(GLenum shaderType, const char* src, GLuint* outShader);
     static bool linkShaderProgram(GLuint vs, GLuint fs, GLuint* outPgm);
 
-    ProgramType mProgramType;
     GLuint mProgram;
 
     GLint maPositionLoc;

@@ -69,16 +69,7 @@ bool Overlay::setup_l() {
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
 
-    // Shaders for rendering from different types of textures.
-    if (!mTexProgram.setup(Program::PROGRAM_TEXTURE_2D)) {
-        return false;
-    }
-
-    if (!mExtTexProgram.setup(Program::PROGRAM_EXTERNAL_TEXTURE)) {
-        return false;
-    }
-
-    if (!mExtTexSharpProgram.setup(Program::PROGRAM_EXTERNAL_TEXTURE_SHARP)) {
+    if (!mExtTexSharpProgram.setup()) {
         return false;
     }
 
@@ -107,13 +98,10 @@ bool Overlay::setup_l() {
     return true;
 }
 
-
 void Overlay::release_l() {
     LOGI("Overlay::release_l");
 //TODO    mGlConsumer.clear();
 
-    mTexProgram.release();
-    mExtTexProgram.release();
     mExtTexSharpProgram.release();
     mEglWindow.release();
 }
@@ -125,46 +113,18 @@ void Overlay::processFrame_l() {
     mGlConsumer->getTransformMatrix(texMatrix);
     int64_t monotonicNsec = mGlConsumer->getTimestamp();
     int64_t frameNumber = mGlConsumer->getFrameNumber();
-
-    if (mLastFrameNumber > 0) {
-        mTotalDroppedFrames += size_t(frameNumber - mLastFrameNumber) - 1;
-    }
-    mLastFrameNumber = frameNumber;
 */
-
-    if (true) {  // DEBUG - full blue background
-        glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
-        glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    }
-
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_EXTERNAL_OES,mExtTextureName);
 
     int width = mEglWindow.getWidth();
     int height = mEglWindow.getHeight();
-    if (true) {  // DEBUG - draw inset
-        mExtTexProgram.blit(mExtTextureName, texMatrix,
-                100, 100, width-200, height-200);
-    } else {
-        mExtTexProgram.blit(mExtTextureName, texMatrix,
-                0, 0, width, height);
-    }
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-
     mExtTexSharpProgram.setSharpAlpha(mSharpAlpha);
     mExtTexSharpProgram.drawSharp(mExtTextureName, texMatrix, 0 ,0 ,width, height);
-
     glDisable(GL_BLEND);
-
-    if (true) {  // DEBUG - add red rectangle in lower-left corner
-        glEnable(GL_SCISSOR_TEST);
-        glScissor(0, 0, 200, 200);
-        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDisable(GL_SCISSOR_TEST);
-    }
 
     mEglWindow.presentationTime(systemnanotime(CLOCK_MONOTONIC));
     mEglWindow.swapBuffers();

@@ -13,8 +13,6 @@ public:
         mRunning(false),
         mFrameAvailable(false),
         mExtTextureName(0),
-        mLastFrameNumber(-1),
-        mTotalDroppedFrames(0),
         glThreadTid(-1)
         {}
 
@@ -56,16 +54,10 @@ private:
     EglWindow mEglWindow;
 
     // GL rendering support.
-    Program mExtTexProgram;
     Program mExtTexSharpProgram;
-    Program mTexProgram;
 
     // External texture, updated by GLConsumer.
     GLuint mExtTextureName;
-
-    // Used for tracking dropped frames.
-    int64_t mLastFrameNumber;
-    size_t mTotalDroppedFrames;
 
     float mSharpAlpha;
 

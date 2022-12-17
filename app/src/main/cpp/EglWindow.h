@@ -47,10 +47,6 @@ public:
     // Swaps the EGL buffer.
     void swapBuffers() const;
 
-    void drawFrame();
-    void eglReleqaseWindow();
-    static void* gl_thread(void *arg);
-
 private:
     EglWindow(const EglWindow&);
     EglWindow& operator=(const EglWindow&);

@@ -5,10 +5,6 @@
 
 #include <assert.h>
 
-#define ORIGIN_SHARP 1
-#define COMMON_SHARP 2
-#define SHARP_TYPE COMMON_SHARP
-
 static const char* kVertexShader =
         "uniform mat4 uMVPMatrix;\n"
         "uniform mat4 uGLCMatrix;\n"
@@ -20,64 +16,6 @@ static const char* kVertexShader =
         "    vTextureCoord = (uGLCMatrix * aTextureCoord).xy;\n"
         "}\n";
 
-// Trivial fragment shader for external texture.
-static const char* kExtFragmentShader =
-        "#extension GL_OES_EGL_image_external : require\n"
-        "precision mediump float;\n"
-        "varying vec2 vTextureCoord;\n"
-        "uniform samplerExternalOES uTexture;\n"
-        "void main() {\n"
-        "    gl_FragColor = texture2D(uTexture, vTextureCoord);\n"
-        "}\n";
-
-#if SHARP_TYPE == ORIGIN_SHARP
-static const char *kExtSharpFragmentShader =
-  "#extension GL_OES_EGL_image_external : require\n"
-  "#extension GL_OES_EGL_image_external_essl3 : enable\n"
-  "precision mediump float;\n"
-  "varying vec2 vTextureCoord;\n"
-  "uniform samplerExternalOES uTexture;\n"
-  "uniform float alpha;\n"
-  "vec4 sharpen() {\n"
-  "    ivec2 TexSize = textureSize(uTexture, 0);\n"
-//  "    ivec2 TexSize = ivec2(1280.0, 720.0);\n"
-  "    float xx = float(TexSize.x);\n"
-  "    float yy = float(TexSize.y);\n"
-  "    vec2 offset0 = vec2(-1.0 / xx, -1.0 / yy);\n"
-  "    vec2 offset1 = vec2(0.0 / xx, -1.0 / yy);\n"
-  "    vec2 offset2 = vec2(1.0 / xx, -1.0 / yy);\n"
-  "    vec2 offset3 = vec2(-1.0 / xx, 0.0 / yy);\n"
-  "    vec2 offset4 = vec2(0.0 / xx, 0.0 / yy);\n"
-  "    vec2 offset5 = vec2(1.0 / xx, 0.0 / yy);\n"
-  "    vec2 offset6 = vec2(-1.0 / xx, 1.0 / yy);\n"
-  "    vec2 offset7 = vec2(0.0 / xx, 1.0 / yy);\n"
-  "    vec2 offset8 = vec2(1.0 / xx, 1.0 / yy);\n"
-
-  "    vec4 sum;\n"
-  "    vec4 cTemp0 = texture(uTexture, vTextureCoord.st + offset0.xy);\n"
-  "    vec4 cTemp1 = texture(uTexture, vTextureCoord.st + offset1.xy);\n"
-  "    vec4 cTemp2 = texture(uTexture, vTextureCoord.st + offset2.xy);\n"
-  "    vec4 cTemp3 = texture(uTexture, vTextureCoord.st + offset3.xy);\n"
-  "    vec4 cTemp4 = texture(uTexture, vTextureCoord.st + offset4.xy);\n"
-  "    vec4 cTemp5 = texture(uTexture, vTextureCoord.st + offset5.xy);\n"
-  "    vec4 cTemp6 = texture(uTexture, vTextureCoord.st + offset6.xy);\n"
-  "    vec4 cTemp7 = texture(uTexture, vTextureCoord.st + offset7.xy);\n"
-  "    vec4 cTemp8 = texture(uTexture, vTextureCoord.st + offset8.xy);\n"
-  "    sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*alpha;\n"
-  "    return sum;\n"
-  "}\n"
-  "void main() {\n"
-  "   //vec4 tex = texture( s_texture, v_texCoord );\n"
-  "   //outColor = vec4(tex.rgb*1.5, 1.0);\n"
-  "   vec4 tex = sharpen();\n"
-//  "   tex.r = 0.0;\n"
-//  "   tex.g = 1.0;\n"
-//  "   tex.b = 0.0;\n"
-  "   gl_FragColor = vec4(tex.r, tex.g, tex.b, 1.0);\n"
-//  "   gl_FragColor = vec4(0.0, 0.5, 0.0, 1.0);\n"
-  "   //color = sharpen();\n"
-  "}\n";
-#else
 static const char *kExtSharpFragmentShader =
   "#extension GL_OES_EGL_image_external : require\n"
   "precision mediump float;\n"
@@ -110,34 +48,11 @@ static const char *kExtSharpFragmentShader =
 //  "    gl_FragColor = vec4(tex.r, tex.g, tex.b, 1.0);\n"
   "    gl_FragColor = vec4(sum.r, sum.g, sum.b, 1.0);\n"
   "}\n";
-#endif
 
-// Trivial fragment shader for mundane texture.
-static const char* kFragmentShader =
-        "precision mediump float;\n"
-        "varying vec2 vTextureCoord;\n"
-        "uniform sampler2D uTexture;\n"
-        "void main() {\n"
-        "    gl_FragColor = texture2D(uTexture, vTextureCoord);\n"
-        //"    gl_FragColor = vec4(0.2, 1.0, 0.2, 1.0);\n"
-        "}\n";
-
-bool Program::setup(ProgramType type) {
-    LOGI("Program::setup type=%d", type);
-    bool ret = false;
-
-    mProgramType = type;
-
+bool Program::setup() {
     GLuint program;
-    if (type == PROGRAM_TEXTURE_2D) {
-        ret = createProgram(&program, kVertexShader, kFragmentShader);
-    } else if(type == PROGRAM_EXTERNAL_TEXTURE_SHARP) {
-        ret = createProgram(&program, kVertexShader, kExtSharpFragmentShader);
-    } else {
-        ret = createProgram(&program, kVertexShader, kExtFragmentShader);
-    }
-    if (!ret) {
-        return ret;
+    if (!createProgram(&program, kVertexShader, kExtSharpFragmentShader)) {
+        return false;
     }
     assert(program != 0);
 
@@ -281,29 +196,6 @@ bool Program::drawSharp(GLuint texName, const float* texMatrix,
   return false;
 }
 
-bool Program::blit(GLuint texName, const float* texMatrix,
-        int32_t x, int32_t y, int32_t w, int32_t h, bool invert) const {
-
-    const float pos[] = {
-        float(x),   float(y+h),
-        float(x+w), float(y+h),
-        float(x),   float(y),
-        float(x+w), float(y),
-    };
-    const float uv[] = {
-        0.0f, 0.0f,
-        1.0f, 0.0f,
-        0.0f, 1.0f,
-        1.0f, 1.0f,
-    };
-
-    if (beforeDraw(texName, texMatrix, pos, uv, invert, w, h)) {
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-        return afterDraw();
-    }
-    return false;
-}
-
 bool Program::beforeDraw(GLuint texName, const float* texMatrix,
         const float* vertices, const float* texes, bool invert, int width, int height) const {
     // Create an orthographic projection matrix based on viewport size.
@@ -331,32 +223,12 @@ bool Program::beforeDraw(GLuint texName, const float* texMatrix,
     glUniformMatrix4fv(muGLCMatrixLoc, 1, GL_FALSE, texMatrix);
 
     glActiveTexture(GL_TEXTURE0);
-
-    switch (mProgramType) {
-    case PROGRAM_EXTERNAL_TEXTURE:
-        glBindTexture(GL_TEXTURE_EXTERNAL_OES, texName);
-        break;
-    case PROGRAM_TEXTURE_2D:
-        glBindTexture(GL_TEXTURE_2D, texName);
-        break;
-    case  PROGRAM_EXTERNAL_TEXTURE_SHARP:
-      glBindTexture(GL_TEXTURE_EXTERNAL_OES, texName);
-      break;
-    default:
-        LOGE("unexpected program type %d", mProgramType);
-        return false;
-    }
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, texName);
 
     glUniform1i(muTextureLoc, 0);
-
-    //only sharp use
-    if(mAlphaLoc >= 0) {
-      glUniform1f(mAlphaLoc, mSharpAlpha);
-    }
-    if(mTextureSizeLoc >= 0) {
-      float size[] = { width * 1.0f, height * 1.0f};
-      glUniform2fv(mTextureSizeLoc, 1, size);
-    }
+    glUniform1f(mAlphaLoc, mSharpAlpha);
+    float size[] = { width * 1.0f, height * 1.0f};
+    glUniform2fv(mTextureSizeLoc, 1, size);
 
     GLenum glErr;
     if ((glErr = glGetError()) != GL_NO_ERROR) {
