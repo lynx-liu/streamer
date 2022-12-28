@@ -122,21 +122,21 @@ bool VideoEncoder::start(const char *ip, int port, const char *filename) {
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     media_status_t videoStatus = AMediaCodec_start(videoCodec);
     if (AMEDIA_OK != videoStatus) {
-        LOGI("open videoCodec status-->%d", videoStatus);
+        LOGE("open videoCodec status-->%d", videoStatus);
         release();
         return false;
     }
 
     m_sockfd = connectSocket(ip,port);
     if(m_sockfd<0) {
-        LOGI("video connectSocket failed!");
+        LOGE("video connectSocket failed!");
         release();
         return false;
     }
 
     mIsRecording = true;
     if(pthread_create(&encode_tid, nullptr, encode_thread, this)!=0) {
-        LOGI("video encode_thread failed!");
+        LOGE("video encode_thread failed!");
         release();
         return false;
     }

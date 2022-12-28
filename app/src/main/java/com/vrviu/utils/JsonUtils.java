@@ -19,4 +19,12 @@ public class JsonUtils {
             return defval;
         }
     }
+
+    static public double get(JSONObject jsonObject,String key,double defval){
+        try {
+            return jsonObject.getDouble(key);
+        } catch (JSONException e) {
+            return defval;
+        }
+    }
 }

@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 
+import com.vrviu.opengl.EGLRender;
 import com.vrviu.streamer.BuildConfig;
 import com.vrviu.net.ControlTcpClient;
 import com.vrviu.net.VideoTcpServer;
@@ -39,6 +40,7 @@ public class StreamerService extends AccessibilityService {
     private static int videoWidth = 1920;
     private static int videoHeight = 1080;
     private IBinder iDisplay = null;
+    private EGLRender eglRender = null;
     private DisplayManager displayManager = null;
     private static final Point screenSize = new Point();
     private final MediaEncoder mediaEncoder = new MediaEncoder();
@@ -162,7 +164,7 @@ public class StreamerService extends AccessibilityService {
 
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
-        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir) {
+        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir, float sharp) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
             if(controlTcpClient!=null) controlTcpClient.interrupt();
@@ -179,6 +181,11 @@ public class StreamerService extends AccessibilityService {
 
                 int profile = getProfile(videoCodecProfile);
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
+
+                if(sharp>0) {
+                    eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, mhandler);
+                    surface = eglRender.getSurface();
+                }
 
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
                 if(screenSize.x< screenSize.y && orientation==0) {
