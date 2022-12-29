@@ -159,6 +159,8 @@ public final class SystemUtils {
         try {
             Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm clear com.android.providers.media"});
             Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm clear com.android.gallery3d"});
+            Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm grant com.android.gallery3d android.permission.READ_EXTERNAL_STORAGE"});
+            Runtime.getRuntime().exec(new String[]{"sh", "-c", "pm grant com.android.gallery3d android.permission.WRITE_EXTERNAL_STORAGE"});
         }catch (Exception e) {
             Log.d("llx",e.toString());
         }
