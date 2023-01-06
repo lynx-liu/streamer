@@ -22,8 +22,6 @@ inline int32_t systemmilltime() {
 
 VideoEncoder::VideoEncoder()
 {
-    nWidth = 0;
-    nHeight = 0;
     encode_tid = 0;
     m_sockfd = -1;
     mVideoTrack = -1;
@@ -55,16 +53,14 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     if(width==0 || height==0)
         return nullptr;
 
-    nWidth = std::max(width,height);
-    nHeight = std::min(width,height);
     timeoutUs = minFps>0? 1000000L/minFps : -1;
     avc = h264;
 
     const char *VIDEO_MIME = avc?"video/avc":"video/hevc";
     AMediaFormat *videoFormat = AMediaFormat_new();
     AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, nWidth);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, nHeight);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, width);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, height);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,bitrate);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, maxFps);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, iFrameInterval);

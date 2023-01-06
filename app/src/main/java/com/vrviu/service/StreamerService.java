@@ -107,18 +107,10 @@ public class StreamerService extends AccessibilityService {
             Display display = displayManager.getDisplay(0);
             display.getRealSize(screenSize);
 
-            if(iDisplay!=null) {
-                Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-                if(screenSize.x< screenSize.y && orientation==0) {
-                    SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
-                } else {
-                    SurfaceControl.setDisplayRotation(iDisplay, screenRect, new Rect(0,0, videoWidth, videoHeight), 0);
-                }
-            }
-
             if(controlTcpClient!=null) {
                 controlTcpClient.setDisplayRotation(screenSize);
             }
+            releaseStreaming();
         }
     };
 
@@ -175,9 +167,13 @@ public class StreamerService extends AccessibilityService {
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 orientation = orientationType;
-                videoWidth = Math.max(width, height);
-                videoHeight = Math.min(width, height);
-                Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+                if(screenSize.x< screenSize.y && orientation%2!=0) {
+                    videoWidth = Math.min(width, height);
+                    videoHeight = Math.max(width, height);
+                } else {
+                    videoWidth = Math.max(width, height);
+                    videoHeight = Math.min(width, height);
+                }
 
                 int profile = getProfile(videoCodecProfile);
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
@@ -187,9 +183,10 @@ public class StreamerService extends AccessibilityService {
                     surface = eglRender.getSurface();
                 }
 
+                Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
                 iDisplay = SurfaceControl.createDisplay("streamer", true);
                 if(screenSize.x< screenSize.y && orientation==0) {
-                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
+                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0,0, videoHeight, videoWidth), 3);
                 } else {
                     SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
                 }

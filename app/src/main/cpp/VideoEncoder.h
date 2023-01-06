@@ -47,8 +47,6 @@ typedef struct ABuffer {
 class VideoEncoder
 {
 private:
-    int nWidth;
-    int nHeight;
     pthread_t encode_tid = 0;
     int m_sockfd = -1;
     ABuffer spspps;
