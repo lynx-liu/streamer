@@ -156,7 +156,7 @@ public class StreamerService extends AccessibilityService {
 
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
-        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir, float sharp) {
+        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir, float sharp, int audioType) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
             if(controlTcpClient!=null) controlTcpClient.interrupt();
@@ -176,7 +176,7 @@ public class StreamerService extends AccessibilityService {
                 }
 
                 int profile = getProfile(videoCodecProfile);
-                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode);
+                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile, idrPeriod/maxFps, rateControlMode, audioType, null);
 
                 if(sharp>0) {
                     eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, mhandler);
@@ -196,7 +196,7 @@ public class StreamerService extends AccessibilityService {
                 if(delayMillis>MAX_DELAY) delayMillis = MAX_DELAY;
                 else if(delayMillis<1000/maxFps) delayMillis = 1000/maxFps+1;
                 mhandler.sendEmptyMessageDelayed(MSG_UPDATE_VIEW,delayMillis);
-                return mediaEncoder.start(lsIp, lsVideoPort, lsAudioPort, null);
+                return mediaEncoder.start(lsIp, lsVideoPort, lsAudioPort);
             }
             return true;
         }

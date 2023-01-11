@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+uint8_t trackTotal = 0;
+AMediaMuxer *mMuxer = NULL;
 AudioEncoder *audioEncoder = new AudioEncoder();
 VideoEncoder *videoEncoder = new VideoEncoder();
 
@@ -23,23 +25,35 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int maxFps, int bitrate, int minFps, jboolean h264, int profile, int iFrameInterval, int bitrateMode) {
-    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, h264, profile, iFrameInterval, bitrateMode);
+JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int maxFps, int bitrate, int minFps, jboolean h264, int profile, int iFrameInterval, int bitrateMode, int audioMimeType, jstring fileName) {
+    if(fileName!= nullptr) {
+        const char* filename = env->GetStringUTFChars(fileName, NULL);
+
+        if(filename) {
+            int fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
+            if (!fd) {
+                LOGE("open media file failed-->%d", fd);
+            } else {
+                mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
+                AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
+                close(fd);
+            }
+        }
+        env->ReleaseStringUTFChars(fileName, filename);
+    }
+
+    audioEncoder->init(env, audioMimeType, mMuxer, reinterpret_cast<int8_t *>(&trackTotal));
+    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, h264, profile, iFrameInterval, bitrateMode, mMuxer, reinterpret_cast<int8_t *>(&trackTotal));
+
+    if(mMuxer!= nullptr) {
+        LOGI("trackTotal: %d", trackTotal);
+    }
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring _ip, jint videoPort, jint audioPort, jstring _filename) {
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring _ip, jint videoPort, jint audioPort) {
     const char* ip = env->GetStringUTFChars(_ip,NULL);
-    const char* filename = nullptr;
-    if(_filename!= nullptr) {
-        filename = env->GetStringUTFChars(_filename, NULL);
-    }
-
-    bool ret = videoEncoder->start(ip,videoPort,filename) & audioEncoder->start(env,ip,audioPort);
-
-    if(_filename!= nullptr) {
-        env->ReleaseStringUTFChars(_filename, filename);
-    }
+    bool ret = videoEncoder->start(ip, videoPort) & audioEncoder->start(ip, audioPort);
     env->ReleaseStringUTFChars(_ip, ip);
     return ret;
 }
@@ -47,6 +61,13 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *en
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_stop(JNIEnv *env, jobject thiz) {
     audioEncoder->release();
     videoEncoder->release();
+
+    if (mMuxer) {
+        LOGI("trackTotal: %d", trackTotal);
+        AMediaMuxer_stop(mMuxer);
+        AMediaMuxer_delete(mMuxer);
+        mMuxer = nullptr;
+    }
     return true;
 }
 

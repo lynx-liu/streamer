@@ -49,9 +49,15 @@ void VideoEncoder::setVideoBitrate(int bitrate) {
     AMediaFormat_delete(videoFormat);
 }
 
-ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, bool h264, int profile, int iFrameInterval, int bitrateMode) {
+ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, bool h264, int profile, int iFrameInterval, int bitrateMode, AMediaMuxer *muxer, int8_t *tracktotal) {
     if(width==0 || height==0)
         return nullptr;
+
+    mMuxer = muxer;
+    trackTotal = tracktotal;
+    if(mMuxer!= nullptr) {
+        (*trackTotal)++;
+    }
 
     timeoutUs = minFps>0? 1000000L/minFps : -1;
     avc = h264;
@@ -103,19 +109,9 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     return surface;
 }
 
-bool VideoEncoder::start(const char *ip, int port, const char *filename) {
-    if(filename) {
-        int fd = open(filename, O_CREAT | O_RDWR, 0666);
-        if (!fd) {
-            LOGE("open media file failed-->%d", fd);
-            release();
-            return false;
-        }
-        mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
-        AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
-    }
+bool VideoEncoder::start(const char *ip, int port) {
+    mIsRecording = true;
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////////
     media_status_t videoStatus = AMediaCodec_start(videoCodec);
     if (AMEDIA_OK != videoStatus) {
         LOGE("open videoCodec status-->%d", videoStatus);
@@ -130,7 +126,6 @@ bool VideoEncoder::start(const char *ip, int port, const char *filename) {
         return false;
     }
 
-    mIsRecording = true;
     if(pthread_create(&encode_tid, nullptr, encode_thread, this)!=0) {
         LOGE("video encode_thread failed!");
         release();
@@ -153,7 +148,7 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
         size_t out_size = 0;
         if (outIndex >= 0) {
             uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
-            if (mVideoTrack >= 0 && info->size > 0 && info->presentationTimeUs > 0) {
+            if (info->size > 0 && info->presentationTimeUs > 0) {
                 if(avc) {
                     onH264Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
                 } else {
@@ -170,11 +165,17 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
             AMediaFormat *outFormat = AMediaCodec_getOutputFormat(videoCodec);
             const char *s = AMediaFormat_toString(outFormat);
             LOGI("video out format %s", s);
-            mVideoTrack = 0;
 
             if(mMuxer) {
-                AMediaMuxer_addTrack(mMuxer, outFormat);
-                AMediaMuxer_start(mMuxer);
+                mVideoTrack = AMediaMuxer_addTrack(mMuxer, outFormat);
+                LOGI("videoTrack: %d", mVideoTrack);
+                if(mVideoTrack>=(*trackTotal)-1) {
+                    AMediaMuxer_start(mMuxer);
+                    LOGI("MediaMuxer start");
+                } else if(mVideoTrack<0) {
+                    (*trackTotal)--;
+                    mMuxer = nullptr;
+                }
             }
         }
 
@@ -314,13 +315,11 @@ void VideoEncoder::release() {
         surface = nullptr;
     }
 
-    mVideoTrack = -1;
-
-    if (mMuxer) {
-        AMediaMuxer_stop(mMuxer);
-        AMediaMuxer_delete(mMuxer);
+    if(mMuxer!= nullptr) {
+        (*trackTotal)--;
         mMuxer = nullptr;
     }
+    mVideoTrack = -1;
 
     if(m_sockfd>=0) {
         close(m_sockfd);

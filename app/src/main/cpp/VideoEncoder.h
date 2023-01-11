@@ -58,6 +58,7 @@ private:
     bool mIsRecording;
     int64_t timeoutUs = -1;
     bool avc = false;
+    int8_t *trackTotal;
 
 private:
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
@@ -73,8 +74,8 @@ public:
     ~VideoEncoder();
     void requestSyncFrame();
     void setVideoBitrate(int bitrate);
-    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264, int profile, int iFrameInterval, int bitrateMode);
-    bool start(const char *ip, int port, const char *filename);
+    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264, int profile, int iFrameInterval, int bitrateMode, AMediaMuxer *muxer, int8_t *tracktotal);
+    bool start(const char *ip, int port);
     void release();
 };
 
