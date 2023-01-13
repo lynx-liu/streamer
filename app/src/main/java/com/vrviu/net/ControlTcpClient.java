@@ -74,6 +74,7 @@ public final class ControlTcpClient extends TcpClient{
     private static final int ACTION_DOWN = 0x08;
     private static final int ACTION_UP = 0x09;
     private static final int ACTION_MOVE = 0x0A;
+    private static final int ACTION_CANCEL = 0x0B;
 
     private static final int KEYCODE_ENTER = 888;
     private static final int KEYCODE_SCREENSHOT = 999;
@@ -376,6 +377,7 @@ public final class ControlTcpClient extends TcpClient{
                 lastTouchDownTime= SystemClock.uptimeMillis();
                 break;
             case ACTION_UP:
+            case ACTION_CANCEL:
                 action = MotionEvent.ACTION_UP;
                 break;
             case ACTION_MOVE:
