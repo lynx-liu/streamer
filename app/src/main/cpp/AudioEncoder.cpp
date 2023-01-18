@@ -264,6 +264,9 @@ int AudioEncoder::connectSocket(const char *ip, int port) {
 }
 
 void AudioEncoder::release() {
+    if(!mIsRecording)
+        return;
+
     mIsRecording = false;
     if(encode_tid!=0) {
         LOGI("audio encode pthread_join!!!");

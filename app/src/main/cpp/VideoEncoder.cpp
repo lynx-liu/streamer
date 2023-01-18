@@ -297,6 +297,9 @@ int VideoEncoder::connectSocket(const char *ip, int port) {
 }
 
 void VideoEncoder::release() {
+    if(!mIsRecording)
+        return;
+
     mIsRecording = false;
     if(encode_tid!=0) {
         LOGI("video encode pthread_join!!!");
