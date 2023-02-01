@@ -16,6 +16,7 @@
 #include <media/NdkMediaMuxer.h>
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaFormat.h>
+#include <mutex>
 
 #define REPEAT_FRAME_DELAY_US           50000 // repeat after 50ms
 
@@ -44,6 +45,11 @@ typedef struct ABuffer {
     VideoHeader header;
 } ABuffer;
 
+typedef struct AMediaInfo {
+    int32_t outIndex;
+    AMediaCodecBufferInfo bufferInfo;
+} AMediaInfo;
+
 class VideoEncoder
 {
 private:
@@ -60,14 +66,24 @@ private:
     bool avc = false;
     int8_t *trackTotal;
 
+    pthread_t send_tid = 0;
+    std::mutex mtx;
+    std::condition_variable cond;
+    std::queue<AMediaInfo> mediaInfoQueue;
+
 private:
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
     static void* encode_thread(void *arg);
+
+    inline void notifyOutputAvailable(int32_t index, AMediaCodecBufferInfo *bufferInfo);
+    inline void onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info);
+    inline void onFormatChange(AMediaFormat *format);
     inline void onH264Frame(uint8_t* bytes, size_t size, int64_t ts);
     inline void onH265Frame(uint8_t* bytes, size_t size, int64_t ts);
     inline void onEncodeFrame(uint8_t *bytes,size_t size,int maxFps,bool keyframe,int64_t ts) const;
 
     static int connectSocket(const char *ip, int port);
+    static void* send_thread(void *arg);
 
 public:
     VideoEncoder();

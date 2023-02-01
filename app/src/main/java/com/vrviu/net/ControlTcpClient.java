@@ -704,6 +704,8 @@ public final class ControlTcpClient extends TcpClient{
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            dataOutputStream = null;
+
             try {
                 dataInputStream.close();
             } catch (IOException e) {

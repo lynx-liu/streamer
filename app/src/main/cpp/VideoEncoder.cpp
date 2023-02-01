@@ -24,6 +24,7 @@ VideoEncoder::VideoEncoder()
 {
     encode_tid = 0;
     m_sockfd = -1;
+    send_tid = 0;
     mVideoTrack = -1;
     avc = false;
     mIsRecording = false;
@@ -126,6 +127,12 @@ bool VideoEncoder::start(const char *ip, int port) {
         return false;
     }
 
+    if(pthread_create(&send_tid, nullptr, send_thread, this)!=0) {
+        LOGE("video send_thread failed!");
+        release();
+        return false;
+    }
+
     if(pthread_create(&encode_tid, nullptr, encode_thread, this)!=0) {
         LOGE("video encode_thread failed!");
         release();
@@ -133,6 +140,57 @@ bool VideoEncoder::start(const char *ip, int port) {
     }
     LOGI("video start success");
     return true;
+}
+
+inline void VideoEncoder::notifyOutputAvailable(int32_t index, AMediaCodecBufferInfo *bufferInfo) {
+    AMediaInfo mediaInfo;
+    memset(&mediaInfo,0,sizeof(mediaInfo));
+
+    mediaInfo.outIndex = index;
+    memcpy(&mediaInfo.bufferInfo,bufferInfo,sizeof(AMediaCodecBufferInfo));
+    mediaInfoQueue.push(mediaInfo);
+#if NDK_DEBUG
+    LOGI("notify_all");
+#endif
+    cond.notify_all();
+}
+
+inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info) {
+#if NDK_DEBUG
+    LOGI("index(%d), (%d, %d, %lld, 0x%x)", outIndex, info->offset, info->size, (long long)info->presentationTimeUs, info->flags);
+#endif
+    size_t out_size = 0;
+    uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
+    if (info->size > 0 && info->presentationTimeUs > 0) {
+        if(avc) {
+            onH264Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
+        } else {
+            onH265Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
+        }
+
+        if(mMuxer) {
+            AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
+        }
+    }
+
+    AMediaCodec_releaseOutputBuffer(videoCodec, outIndex, false);
+}
+
+inline void VideoEncoder::onFormatChange(AMediaFormat *format) {
+    const char *s = AMediaFormat_toString(format);
+    LOGI("video out format %s", s);
+
+    if(mMuxer) {
+        mVideoTrack = AMediaMuxer_addTrack(mMuxer, format);
+        LOGI("videoTrack: %d", mVideoTrack);
+        if(mVideoTrack>=(*trackTotal)-1) {
+            AMediaMuxer_start(mMuxer);
+            LOGI("MediaMuxer start");
+        } else if(mVideoTrack<0) {
+            (*trackTotal)--;
+            mMuxer = nullptr;
+        }
+    }
 }
 
 inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
@@ -145,38 +203,11 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
 #if NDK_DEBUG
         LOGI("AMediaCodec_dequeueOutputBuffer: %zd, %d, %d ms\r\n", outIndex, info->offset, systemmilltime() - start);
 #endif
-        size_t out_size = 0;
         if (outIndex >= 0) {
-            uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
-            if (info->size > 0 && info->presentationTimeUs > 0) {
-                if(avc) {
-                    onH264Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
-                } else {
-                    onH265Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
-                }
-
-                if(mMuxer) {
-                    AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
-                }
-            }
-
-            AMediaCodec_releaseOutputBuffer(videoCodec, outIndex, false);
+            notifyOutputAvailable(outIndex, info);
         } else if (outIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
             AMediaFormat *outFormat = AMediaCodec_getOutputFormat(videoCodec);
-            const char *s = AMediaFormat_toString(outFormat);
-            LOGI("video out format %s", s);
-
-            if(mMuxer) {
-                mVideoTrack = AMediaMuxer_addTrack(mMuxer, outFormat);
-                LOGI("videoTrack: %d", mVideoTrack);
-                if(mVideoTrack>=(*trackTotal)-1) {
-                    AMediaMuxer_start(mMuxer);
-                    LOGI("MediaMuxer start");
-                } else if(mVideoTrack<0) {
-                    (*trackTotal)--;
-                    mMuxer = nullptr;
-                }
-            }
+            onFormatChange(outFormat);
         }
 
         if(info->flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
@@ -198,6 +229,24 @@ void* VideoEncoder::encode_thread(void *arg) {
     }
     free(info);
     LOGI("video encode_thread exit");
+    return nullptr;
+}
+
+void* VideoEncoder::send_thread(void *arg) {
+    auto *videoEncoder =(VideoEncoder *)arg;
+    setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
+    setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
+
+    while(videoEncoder->mIsRecording) {
+        std::unique_lock<std::mutex> lock_u(videoEncoder->mtx);
+        videoEncoder->cond.wait(lock_u);
+        while(!videoEncoder->mediaInfoQueue.empty()) {
+            AMediaInfo mediaInfo = videoEncoder->mediaInfoQueue.front();
+            videoEncoder->onOutputAvailable(mediaInfo.outIndex, &mediaInfo.bufferInfo);
+            videoEncoder->mediaInfoQueue.pop();
+        }
+    }
+    LOGI("video send_thread exit");
     return nullptr;
 }
 
@@ -301,10 +350,18 @@ void VideoEncoder::release() {
         return;
 
     mIsRecording = false;
+
     if(encode_tid!=0) {
         LOGI("video encode pthread_join!!!");
         pthread_join(encode_tid, nullptr);
         encode_tid = 0;
+    }
+
+    cond.notify_all();
+    if(send_tid!=0) {
+        LOGI("video send pthread_join!!!");
+        pthread_join(send_tid, nullptr);
+        send_tid = 0;
     }
 
     if (videoCodec) {
@@ -323,6 +380,10 @@ void VideoEncoder::release() {
         mMuxer = nullptr;
     }
     mVideoTrack = -1;
+
+    while(!mediaInfoQueue.empty()) {
+        mediaInfoQueue.pop();
+    }
 
     if(m_sockfd>=0) {
         close(m_sockfd);
