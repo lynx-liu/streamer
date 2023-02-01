@@ -75,6 +75,11 @@ private:
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
     static void* encode_thread(void *arg);
 
+    static void OnInputAvailableCB(AMediaCodec *mediaCodec, void *userdata, int32_t index);
+    static void OnOutputAvailableCB(AMediaCodec *mediaCodec, void *userdata, int32_t index, AMediaCodecBufferInfo *bufferInfo);
+    static void OnFormatChangedCB(AMediaCodec *mediaCodec, void *userdata, AMediaFormat *format);
+    static void OnErrorCB(AMediaCodec *mediaCodec, void *userdata, media_status_t err, int32_t actionCode, const char *detail);
+
     inline void notifyOutputAvailable(int32_t index, AMediaCodecBufferInfo *bufferInfo);
     inline void onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info);
     inline void onFormatChange(AMediaFormat *format);

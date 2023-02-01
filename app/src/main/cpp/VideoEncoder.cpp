@@ -9,6 +9,7 @@
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
 #define NDK_DEBUG   0
+#define CALL_BACK   1
 
 inline int64_t systemnanotime() {
     timespec now{};
@@ -113,6 +114,16 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
 bool VideoEncoder::start(const char *ip, int port) {
     mIsRecording = true;
 
+#if CALL_BACK
+    AMediaCodecOnAsyncNotifyCallback videoCallBack = {
+            OnInputAvailableCB,
+            OnOutputAvailableCB,
+            OnFormatChangedCB,
+            OnErrorCB
+    };
+    AMediaCodec_setAsyncNotifyCallback(videoCodec,videoCallBack,this);
+#endif
+
     media_status_t videoStatus = AMediaCodec_start(videoCodec);
     if (AMEDIA_OK != videoStatus) {
         LOGE("open videoCodec status-->%d", videoStatus);
@@ -133,13 +144,33 @@ bool VideoEncoder::start(const char *ip, int port) {
         return false;
     }
 
+#if !CALL_BACK
     if(pthread_create(&encode_tid, nullptr, encode_thread, this)!=0) {
         LOGE("video encode_thread failed!");
         release();
         return false;
     }
+#endif
     LOGI("video start success");
     return true;
+}
+
+void VideoEncoder::OnInputAvailableCB(AMediaCodec *mediaCodec, void *userdata, int32_t index) {
+    LOGI("OnInputAvailableCB: index(%d)", index);
+}
+
+void VideoEncoder::OnOutputAvailableCB(AMediaCodec *mediaCodec, void *userdata, int32_t index, AMediaCodecBufferInfo *bufferInfo) {
+    auto *videoEncoder =(VideoEncoder *)userdata;
+    videoEncoder->notifyOutputAvailable(index,bufferInfo);
+}
+
+void VideoEncoder::OnFormatChangedCB(AMediaCodec *mediaCodec, void *userdata, AMediaFormat *format) {
+    auto *videoEncoder =(VideoEncoder *)userdata;
+    videoEncoder->onFormatChange(format);
+}
+
+void VideoEncoder::OnErrorCB(AMediaCodec *mediaCodec, void *userdata, media_status_t err, int32_t actionCode, const char *detail) {
+    LOGE("OnErrorCB: err(%d), actionCode(%d), detail(%s)", err, actionCode, detail);
 }
 
 inline void VideoEncoder::notifyOutputAvailable(int32_t index, AMediaCodecBufferInfo *bufferInfo) {
@@ -351,11 +382,16 @@ void VideoEncoder::release() {
 
     mIsRecording = false;
 
+#if CALL_BACK
+    AMediaCodecOnAsyncNotifyCallback callback = {};
+    AMediaCodec_setAsyncNotifyCallback(videoCodec, callback, NULL);
+#else
     if(encode_tid!=0) {
         LOGI("video encode pthread_join!!!");
         pthread_join(encode_tid, nullptr);
         encode_tid = 0;
     }
+#endif
 
     cond.notify_all();
     if(send_tid!=0) {
