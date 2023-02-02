@@ -31,8 +31,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import static android.os.FileObserver.CLOSE_WRITE;
 import static android.view.KeyEvent.KEYCODE_ALT_LEFT;
 import static android.view.KeyEvent.KEYCODE_ALT_RIGHT;
+import static android.view.KeyEvent.KEYCODE_BACK;
 import static android.view.KeyEvent.KEYCODE_CTRL_LEFT;
 import static android.view.KeyEvent.KEYCODE_CTRL_RIGHT;
+import static android.view.KeyEvent.KEYCODE_ESCAPE;
 import static android.view.KeyEvent.KEYCODE_SHIFT_LEFT;
 import static android.view.KeyEvent.KEYCODE_SHIFT_RIGHT;
 import static android.view.KeyEvent.KEYCODE_V;
@@ -331,6 +333,8 @@ public final class ControlTcpClient extends TcpClient{
             } else {
                 return true;
             }
+        } else if(key == KEYCODE_ESCAPE) {
+            key = KEYCODE_BACK;
         }
 
         byte modifiers = buf[7];
@@ -350,6 +354,9 @@ public final class ControlTcpClient extends TcpClient{
                     return true;
                 }
             }
+
+            case KEYCODE_ESCAPE:
+                return controlUtils.injectKeycode(KEYCODE_BACK);
 
             case KEYCODE_SCREENSHOT:
                 return controlUtils.injectTowKeycode(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_POWER);
