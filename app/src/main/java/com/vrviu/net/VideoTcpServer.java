@@ -9,6 +9,8 @@ import org.json.JSONObject;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.Socket;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -168,44 +170,42 @@ defaulQP,maxQP,minQP);
 //              int extsize = ((header[6]&0xFF)<<8)|(header[7]&0xFF);
                 int seqnum = ((header[8]&0xFF)<<24)|((header[9]&0xFF)<<16)|((header[10]&0xFF)<<8)|(header[11]&0xFF);
 
-                switch(version) {
-                    case VERSION: {
-                        try {
-                            byte[] data = new byte[dataLen];
-                            dataInputStream.readFully(data, 0, dataLen);
+                if (version == VERSION) {
+                    try {
+                        byte[] data = new byte[dataLen];
+                        dataInputStream.readFully(data, 0, dataLen);
 
-                            switch (type) {
-                                case startStreaming: {
-                                    boolean result = onStartStreaming(new String(data));
-                                    response(type, seqnum, result?SUCCEEDED:FAILED);
-                                }
-                                break;
-
-                                case stopStreaming: {
-                                    boolean result = onStopStreaming(new String(data));
-                                    response(type,seqnum, result?SUCCEEDED:FAILED);
-                                }
-                                break;
-
-                                case requestIdrFrame:
-                                    requestIdrFrame();
-                                    break;
-
-                                case reconfigureEncode:
-                                    onReconfigureEncode(data);
-                                    break;
-
-                                default:
-                                    response(type,seqnum, UNSUPPORT);
+                        switch (type) {
+                            case startStreaming: {
+                                boolean result = onStartStreaming(new String(data));
+                                response(type, seqnum, result ? SUCCEEDED : FAILED);
                             }
-                        } catch (Exception e) {
-                            Log.e("llx",e.toString());
-                        }
-                    }
-                    break;
+                            break;
 
-                    default:
-                        response(type,seqnum, ERROR);
+                            case stopStreaming: {
+                                boolean result = onStopStreaming(new String(data));
+                                response(type, seqnum, result ? SUCCEEDED : FAILED);
+                            }
+                            break;
+
+                            case requestIdrFrame:
+                                requestIdrFrame();
+                                break;
+
+                            case reconfigureEncode:
+                                onReconfigureEncode(data);
+                                break;
+
+                            default:
+                                response(type, seqnum, UNSUPPORT);
+                        }
+                    } catch (Exception e) {
+                        StringWriter stringWriter = new StringWriter();
+                        e.printStackTrace(new PrintWriter(stringWriter, true));
+                        Log.e("llx", stringWriter.toString());
+                    }
+                } else {
+                    response(type, seqnum, ERROR);
                 }
             }
             dataInputStream.close();
@@ -218,6 +218,7 @@ defaulQP,maxQP,minQP);
                 e.printStackTrace();
             }
             dataOutputStream = null;
+            stopStreaming(true,true,true);
         }
     }
 }
