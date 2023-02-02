@@ -2,6 +2,7 @@ package com.vrviu.net;
 
 import android.util.Log;
 
+import com.vrviu.manager.SurfaceFlingerHelper;
 import com.vrviu.utils.JsonUtils;
 
 import org.json.JSONObject;
@@ -20,6 +21,7 @@ public abstract class VideoTcpServer extends TcpServer {
     private static final int stopStreaming = 0x02;
     private static final int requestIdrFrame = 0x03;
     private static final int reconfigureEncode = 0x04;
+    private static final int reportFps = 0x0B;
     private static final byte RESPONSE = (byte) 0xFF;
     private static final byte VERSION = 0x11;//协议版本
     private static final byte SUCCEEDED = 0x01;//执行成功
@@ -28,7 +30,10 @@ public abstract class VideoTcpServer extends TcpServer {
     private static final byte ERROR = (byte) 0xFF;//版本错误
     private static final int HEARTBEAT_TIME = 10_000;
     private static final byte[] heartbeat = new byte[]{0x00,0x00,0x00,0x08,VERSION,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+
+    private static int nSeqnum = 0;
     private static DataOutputStream dataOutputStream = null;
+    private static SurfaceFlingerHelper surfaceFlingerHelper = null;
 
     public abstract boolean startStreaming(String flowId,  String lsIp, boolean tcp,
                                            int lsVideoPort, int lsAudioPort, int lsControlPort,
@@ -98,8 +103,25 @@ public abstract class VideoTcpServer extends TcpServer {
             int maxQP = JsonUtils.get(jsonObject, "maxQP", 42);
             int minQP = JsonUtils.get(jsonObject, "minQP", 24);
 
-            return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType,enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType,
-defaulQP,maxQP,minQP);
+            String viewName = JsonUtils.get(jsonObject,"viewName",null);
+            if(viewName!=null && !viewName.trim().isEmpty()) {
+                if(surfaceFlingerHelper!=null) {
+                    surfaceFlingerHelper.Release();
+                    surfaceFlingerHelper = null;
+                }
+                surfaceFlingerHelper = new SurfaceFlingerHelper(viewName, new SurfaceFlingerHelper.onFpsListener() {
+                    @Override
+                    public boolean onFps(byte fps) {
+                        Log.d("llx","fps:"+fps);
+                        reportFps(fps);
+                        return false;
+                    }
+                });
+            }
+
+            return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
+                    codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType,
+                    enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType,defaulQP,maxQP,minQP);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -108,6 +130,11 @@ defaulQP,maxQP,minQP);
 
     private boolean onStopStreaming(final String jsonString) {
         Log.d("llx",jsonString);
+        if(surfaceFlingerHelper!=null) {
+            surfaceFlingerHelper.Release();
+            surfaceFlingerHelper = null;
+        }
+
         try {
             JSONObject jsonObject = new JSONObject(jsonString);
             int video = JsonUtils.get(jsonObject, "video", -1);//51898
@@ -131,6 +158,7 @@ defaulQP,maxQP,minQP);
         int orientation = data[10];
         int codec = data[11];
         int frameInterval = ((data[12]&0xFF)<<24)|((data[13]&0xFF)<<16)|((data[14]&0xFF)<<8)|(data[15]&0xFF);
+
         return reconfigureEncode(width,height,bitrate,fps,frameInterval,profile,orientation,codec);
     }
 
@@ -143,6 +171,26 @@ defaulQP,maxQP,minQP);
                 (byte) ((seqnum>>8)&0xFF),
                 (byte) (seqnum&0xFF),
                 type,result
+        };
+
+        if(dataOutputStream!=null) {
+            try {
+                dataOutputStream.write(response);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void reportFps(byte fps) {
+        byte[] response = new byte[]{
+                0x00,0x00,0x00,0x09,
+                VERSION,reportFps,0x00,0x00,
+                (byte) ((nSeqnum>>24)&0xFF),
+                (byte) ((nSeqnum>>16)&0xFF),
+                (byte) ((nSeqnum>>8)&0xFF),
+                (byte) (nSeqnum++&0xFF),
+                fps
         };
 
         if(dataOutputStream!=null) {
