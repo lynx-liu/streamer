@@ -25,7 +25,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int maxFps, int bitrate, int minFps, jboolean h264, int profile, int iFrameInterval, int bitrateMode, int audioMimeType, jstring fileName) {
+JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int maxFps, int bitrate, int minFps, jboolean h264, int profile, int iFrameInterval, int bitrateMode, int audioMimeType, int defaulQP, int maxQP, int minQP, jstring fileName) {
     if(fileName!= nullptr) {
         const char* filename = env->GetStringUTFChars(fileName, NULL);
 
@@ -43,7 +43,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
     }
 
     audioEncoder->init(env, audioMimeType, mMuxer, reinterpret_cast<int8_t *>(&trackTotal));
-    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, h264, profile, iFrameInterval, bitrateMode, mMuxer, reinterpret_cast<int8_t *>(&trackTotal));
+    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, h264, profile, iFrameInterval, bitrateMode, defaulQP, maxQP, minQP, mMuxer, reinterpret_cast<int8_t *>(&trackTotal));
 
     if(mMuxer!= nullptr) {
         LOGI("trackTotal: %d", trackTotal);

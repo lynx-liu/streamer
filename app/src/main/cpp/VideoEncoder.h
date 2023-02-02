@@ -95,7 +95,8 @@ public:
     ~VideoEncoder();
     void requestSyncFrame();
     void setVideoBitrate(int bitrate);
-    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264, int profile, int iFrameInterval, int bitrateMode, AMediaMuxer *muxer, int8_t *tracktotal);
+    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264, int profile, int iFrameInterval,
+                        int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal);
     bool start(const char *ip, int port);
     void release();
 };

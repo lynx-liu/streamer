@@ -35,7 +35,8 @@ public abstract class VideoTcpServer extends TcpServer {
                                            int bitrate, int orientationType, int enableSEI,
                                            int rateControlMode, int gameMode,
                                            String packageName, String downloadDir,
-                                           float sharp, int audioType);
+                                           float sharp, int audioType,
+                                           int defaulQP, int maxQP, int minQP);
     public abstract void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl);
     public abstract void requestIdrFrame();
     public abstract boolean reconfigureEncode(int width,int height,int bitrate,int fps,int frameInterval,int profile,int orientation,int codec);
@@ -91,8 +92,12 @@ public abstract class VideoTcpServer extends TcpServer {
             String downloadDir = JsonUtils.get(jsonObject, "downloadDir", null);
             float sharp = (float) JsonUtils.get(jsonObject, "sharp",0.0);
             int audioType = JsonUtils.get(jsonObject, "audioType", 0);
+            int defaulQP = JsonUtils.get(jsonObject, "defaulQP", 36);
+            int maxQP = JsonUtils.get(jsonObject, "maxQP", 42);
+            int minQP = JsonUtils.get(jsonObject, "minQP", 24);
 
-            return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType,enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType);
+            return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType,enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType,
+defaulQP,maxQP,minQP);
         } catch (Exception e) {
             e.printStackTrace();
         }

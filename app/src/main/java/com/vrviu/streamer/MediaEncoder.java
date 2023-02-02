@@ -10,7 +10,7 @@ public class MediaEncoder {
           }
      }
 
-     public native Surface init(int width, int height, int framerate, int bitrate, int minFps, boolean h264, int profile, int iFrameInterval, int bitrateMode, int audioMimeType, String fileName);
+     public native Surface init(int width, int height, int framerate, int bitrate, int minFps, boolean h264, int profile, int iFrameInterval, int bitrateMode, int audioMimeType, int defaulQP, int maxQP, int minQP, String fileName);
 
      public native boolean start(String ip, int videoPort, int audioPort);
      public native boolean stop();

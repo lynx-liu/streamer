@@ -51,7 +51,8 @@ void VideoEncoder::setVideoBitrate(int bitrate) {
     AMediaFormat_delete(videoFormat);
 }
 
-ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, bool h264, int profile, int iFrameInterval, int bitrateMode, AMediaMuxer *muxer, int8_t *tracktotal) {
+ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, bool h264, int profile, int iFrameInterval,
+                                  int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal) {
     if(width==0 || height==0)
         return nullptr;
 
@@ -76,6 +77,16 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789); //COLOR_FormatSurface
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, maxFps);
     AMediaFormat_setInt32(videoFormat, "max-bframes", 0);//MediaFormat.KEY_MAX_B_FRAMES
+
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i",defaulQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i-enable",1);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-min",minQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-max",maxQP);
+
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p",defaulQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p-enable",1);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-min",minQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-max",maxQP);
 
     if(bitrateMode==0) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 2);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
