@@ -26,7 +26,7 @@ public class EglWindow {
             Log.e("llx", "eglInitialize fail");
             return;
         }
-        Log.e("llx", "Initialized EGL v"+version[0]+"."+version[1]);
+        Log.d("llx", "Initialized EGL v"+version[0]+"."+version[1]);
 
         int[] attrib_list = {EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,EGL14.EGL_NONE};
         EGLContext eglContext = eglCreatePbuffer(mEGLDisplay, attrib_list, width, height);

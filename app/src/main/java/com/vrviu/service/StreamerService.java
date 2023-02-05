@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 
+import com.vrviu.manager.CaptureHelper;
 import com.vrviu.opengl.EGLRender;
 import com.vrviu.streamer.BuildConfig;
 import com.vrviu.net.ControlTcpClient;
@@ -44,6 +45,8 @@ public class StreamerService extends AccessibilityService {
     private DisplayManager displayManager = null;
     private static final Point screenSize = new Point();
     private final MediaEncoder mediaEncoder = new MediaEncoder();
+
+    private CaptureHelper captureHelper = null;
 
     @Override
     public void onCreate() {
@@ -77,6 +80,11 @@ public class StreamerService extends AccessibilityService {
                 mediaEncoder.stop();
                 SurfaceControl.destroyDisplay(iDisplay);
                 iDisplay = null;
+            }
+
+            if (captureHelper != null) {
+                captureHelper.Release();
+                captureHelper = null;
             }
         }
     }
@@ -191,6 +199,8 @@ public class StreamerService extends AccessibilityService {
                 } else {
                     SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
                 }
+
+                captureHelper = new CaptureHelper(screenSize,new Point(videoWidth,videoHeight),orientation);
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
                 if(minFps>0) delayMillis = 1000/minFps;

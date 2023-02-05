@@ -106,7 +106,7 @@ public abstract class VideoTcpServer extends TcpServer {
             String viewName = JsonUtils.get(jsonObject,"viewName",null);
             if(viewName!=null && !viewName.trim().isEmpty()) {
                 if(surfaceFlingerHelper!=null) {
-                    surfaceFlingerHelper.Release();
+                    surfaceFlingerHelper.interrupt();
                     surfaceFlingerHelper = null;
                 }
                 surfaceFlingerHelper = new SurfaceFlingerHelper(viewName, new SurfaceFlingerHelper.onFpsListener() {
@@ -131,7 +131,7 @@ public abstract class VideoTcpServer extends TcpServer {
     private boolean onStopStreaming(final String jsonString) {
         Log.d("llx",jsonString);
         if(surfaceFlingerHelper!=null) {
-            surfaceFlingerHelper.Release();
+            surfaceFlingerHelper.interrupt();
             surfaceFlingerHelper = null;
         }
 

@@ -22,8 +22,9 @@ public class SurfaceFlingerHelper extends Thread{
         start();
     }
 
-    public void Release() {
-        interrupt();
+    @Override
+    public void interrupt() {
+        super.interrupt();
         mListener = null;
     }
 
