@@ -31,4 +31,8 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         eglWindow.setPresentationTime(SystemClock.elapsedRealtimeNanos());
         eglWindow.swapBuffers();
     }
+
+    public void Release() {
+        mSurfaceTexture.setOnFrameAvailableListener(null);
+    }
 }
