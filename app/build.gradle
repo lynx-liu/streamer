@@ -15,6 +15,7 @@ android {
             externalNativeBuild {
                 cmake {
                     cppFlags "-frtti -fexceptions -std=c++11 -O3"
+                    arguments"-DANDROID_STL=c++_shared"
                 }
             }
 
@@ -24,7 +25,7 @@ android {
         }
         targetSdkVersion 33
         versionCode 5
-        versionName "1.5.3"
+        versionName "1.5.4"
     }
 
     signingConfigs {
