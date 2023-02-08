@@ -1,7 +1,9 @@
 package com.vrviu.utils;
 
+import android.app.ActivityManager;
 import android.app.IActivityController;
 import android.app.IProcessObserver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -15,6 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
+import java.util.List;
 
 public final class SystemUtils {
     public static String getProperty(final String key, final String defaultValue) {
@@ -86,46 +89,19 @@ public final class SystemUtils {
         return bytes;
     }
 
-    /**
-     * 5.0以上版本
-     * 需要使用系统签名,同时需要<uses-permission android:name="android.permission.DUMP"/>或声明系统用户
-     *
-     */
-    public static String getTopActivity() {
-        String cmd = "dumpsys activity activities | grep mResumedActivity";//"dumpsys activity";
-        String info = null;
-        Process p = null;
-        try {
-            p = Runtime.getRuntime().exec(cmd);
-            BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            String line = null;
-            while ((line = in.readLine()) != null) {
-                if (line.contains("mResumedActivity")) {
-                    break;
-                }
-            }
-            if (line!=null && !line.isEmpty()) {
-                info = line.substring(line.indexOf("u0 ") + 3, line.lastIndexOf(" "));
-            }
-
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } finally {
-            try {
-                if(p!=null) {
-                    p.getInputStream().close();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    public static String getTopActivity(Context context) {
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> list = am.getRunningTasks(1);
+        if (list != null && list.size() > 0) {
+            ComponentName componentName = list.get(0).topActivity;
+            return componentName.toShortString();
         }
-        return info;
+        return null;
     }
 
-    public static boolean isTopPackage(String packageName) {
+    public static boolean isTopPackage(Context context, String packageName) {
         if(packageName!=null && !packageName.isEmpty()) {
-            String topActivity = SystemUtils.getTopActivity();
+            String topActivity = SystemUtils.getTopActivity(context);
             if (topActivity == null) {
                 Log.d("llx", "topActivity is null");
             } else {

@@ -66,7 +66,7 @@ public class StreamerService extends AccessibilityService {
         videoTcpServer.start();
         createFloatWindow();
 
-        activityMonitor = new ActivityMonitor(mhandler);
+        activityMonitor = new ActivityMonitor(getApplicationContext(), mhandler);
         activityMonitor.addActivityChangeListener(activityChangeListener);
 
         captureHelper = new CaptureHelper(screenSize);

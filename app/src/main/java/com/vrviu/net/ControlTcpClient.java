@@ -189,7 +189,7 @@ public final class ControlTcpClient extends TcpClient{
             @Override
             public void onEvent(int event, String filename) {
                 if(filename!=null) {
-                    if (SystemUtils.isTopPackage(packageName)) {
+                    if (SystemUtils.isTopPackage(context, packageName)) {
                         new Thread(() -> sendFilePath(filename)).start();
                     } else {
                         File imageFile = new File(file, filename);

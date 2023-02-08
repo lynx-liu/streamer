@@ -2,6 +2,7 @@ package com.vrviu.manager;
 
 import android.app.IActivityController;
 import android.app.IProcessObserver;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.RemoteException;
@@ -15,6 +16,7 @@ import java.util.List;
 public class ActivityMonitor {
     private static final long delayMillis = 50;
     private static Handler mHandler = null;
+    private Context mContext = null;
     private static final List<ActivityChangeListener> activityChangeListeners=new ArrayList<>();
     private static final List<ActionChangeListener> actionChangeListeners=new ArrayList<>();
 
@@ -42,18 +44,19 @@ public class ActivityMonitor {
         void onActionChanged(String action, String pkg);
     }
 
-    public ActivityMonitor(Handler handler) {
+    public ActivityMonitor(Context context, Handler handler) {
         super();
+        mContext = context;
         mHandler = handler;
 
         SystemUtils.registerProcessObserver(iProcessObserver);
         SystemUtils.setActivityController(iActivityController,true);
     }
 
-    private static final Runnable runnable = new Runnable() {
+    private final Runnable runnable = new Runnable() {
         @Override
         public void run() {
-            String topActivity = SystemUtils.getTopActivity();
+            String topActivity = SystemUtils.getTopActivity(mContext);
             if(topActivity==null) {
                 mHandler.postDelayed(runnable,delayMillis);
             } else {
