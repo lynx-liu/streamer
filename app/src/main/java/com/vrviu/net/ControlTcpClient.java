@@ -44,6 +44,7 @@ import static android.view.KeyEvent.META_CTRL_ON;
 import static android.view.KeyEvent.META_NUM_LOCK_ON;
 import static android.view.KeyEvent.META_SHIFT_ON;
 
+import com.vrviu.manager.ActivityMonitor;
 import com.vrviu.manager.InputModeManager;
 import com.vrviu.utils.ControlUtils;
 import com.vrviu.utils.SystemUtils;
@@ -128,10 +129,11 @@ public final class ControlTcpClient extends TcpClient{
     private final CameraManager cameraManager;
     private FileObserver fileObserver;
     private final ControlUtils controlUtils;
+    private ActivityMonitor activityMonitor;
     private final InputModeManager inputModeManager;
     private AccessibilityNodeInfo accessibilityNodeInfo = null;
 
-    public ControlTcpClient(final Context context, final String ip, final int port, final boolean isGameMode, final String downloadDir, final String packageName, AtomicLong controlTs) {
+    public ControlTcpClient(final Context context, final String ip, final int port, final boolean isGameMode, final String downloadDir, final String packageName, ActivityMonitor activityMonitor, AtomicLong controlTs) {
         super(ip,port);
         this.isGameMode = isGameMode;
         this.controlTs=controlTs;
@@ -146,18 +148,31 @@ public final class ControlTcpClient extends TcpClient{
 
         MonitorFiles(context,downloadDir,packageName);
 
-        inputModeManager = new InputModeManager(context,handler) {
+        this.activityMonitor = activityMonitor;
+        this.activityMonitor.addActionChangeListener(actionChangeListener);
+        inputModeManager = new InputModeManager(context,activityMonitor) {
             @Override
             public void onInputModeChange(int mode) {
                 new Thread(() -> sendInputModeChanged(mode)).start();
             }
-
-            @Override
-            public void onStartDocuments() {
-                new Thread(() -> sendStartDocuments()).start();
-            }
         };
     }
+
+    ActivityMonitor.ActionChangeListener actionChangeListener = new ActivityMonitor.ActionChangeListener() {
+        @Override
+        public void onActionChanged(String action, String pkg) {
+            if(action!=null) {
+                switch (action) {
+                    case Intent.ACTION_GET_CONTENT:
+                    case Intent.ACTION_PICK:
+                    case Intent.ACTION_OPEN_DOCUMENT://原神
+                        Log.d("llx", action);
+                        new Thread(() -> sendStartDocuments()).start();
+                        break;
+                }
+            }
+        }
+    };
 
     private boolean MonitorFiles(final Context context, final String downloadDir, final String packageName) {
         SystemUtils.clearImage(context,downloadDir);
@@ -240,8 +255,16 @@ public final class ControlTcpClient extends TcpClient{
 
     @Override
     public void interrupt() {
+        if(activityMonitor != null) {
+            activityMonitor.removeActionChangeListener(actionChangeListener);
+            activityMonitor = null;
+        }
+
         inputModeManager.Release();
-        if(fileObserver!=null) fileObserver.stopWatching();
+        if(fileObserver!=null) {
+            fileObserver.stopWatching();
+            fileObserver = null;
+        }
         super.interrupt();
     }
 

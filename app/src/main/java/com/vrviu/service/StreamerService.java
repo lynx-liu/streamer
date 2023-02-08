@@ -17,6 +17,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 
+import com.vrviu.manager.ActivityMonitor;
 import com.vrviu.manager.CaptureHelper;
 import com.vrviu.manager.GameHelper;
 import com.vrviu.opengl.EGLRender;
@@ -47,6 +48,7 @@ public class StreamerService extends AccessibilityService {
     private static final Point screenSize = new Point();
     private final MediaEncoder mediaEncoder = new MediaEncoder();
 
+    private ActivityMonitor activityMonitor = null;
     private CaptureHelper captureHelper = null;
     private GameHelper gameHelper = null;
 
@@ -64,9 +66,19 @@ public class StreamerService extends AccessibilityService {
         videoTcpServer.start();
         createFloatWindow();
 
+        activityMonitor = new ActivityMonitor(mhandler);
+        activityMonitor.addActivityChangeListener(activityChangeListener);
+
         captureHelper = new CaptureHelper(screenSize);
         gameHelper = new GameHelper(captureHelper,"com.netease.dwrg");
     }
+
+    ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
+        @Override
+        public void onActivityChanged(String topActivity) {
+
+        }
+    };
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -105,6 +117,11 @@ public class StreamerService extends AccessibilityService {
         if (captureHelper != null) {
             captureHelper.Release();
             captureHelper = null;
+        }
+
+        if(activityMonitor != null) {
+            activityMonitor.Release();
+            activityMonitor = null;
         }
 
         if(controlTcpClient!=null)
@@ -191,7 +208,7 @@ public class StreamerService extends AccessibilityService {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
             if(controlTcpClient!=null) controlTcpClient.interrupt();
-            controlTcpClient = new ControlTcpClient(getApplicationContext(),lsIp,lsControlPort,isGameMode,downloadDir,packageName,null);
+            controlTcpClient = new ControlTcpClient(getApplicationContext(),lsIp,lsControlPort,isGameMode,downloadDir,packageName,activityMonitor,null);
             controlTcpClient.start();
             controlTcpClient.setDisplayRotation(screenSize);
             releaseStreaming();

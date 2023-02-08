@@ -1,14 +1,8 @@
 package com.vrviu.manager;
 
-import android.app.IActivityController;
-import android.app.IProcessObserver;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.Intent;
-import android.os.Handler;
-import android.os.RemoteException;
 import android.provider.Settings;
-import android.util.Log;
 
 import com.vrviu.utils.SystemUtils;
 
@@ -21,9 +15,8 @@ import java.util.List;
 public abstract class InputModeManager {
     private static final int NOT_INPUT = 0x00;
     public static final int START_INPUT = 0xFF;
-    private static final long delayMillis = 50;
 
-    private static Handler mHandler = null;
+    private static ActivityMonitor activityMonitor = null;
     private static ContentResolver contentResolver = null;
     private static final List<String> target_activity_list = new ArrayList<>();
     private static final List<String> special_activity_list = new ArrayList<>();
@@ -34,15 +27,13 @@ public abstract class InputModeManager {
     private static boolean isPayActivity = false;
     private int inputMode=-1;
 
-    public InputModeManager(Context context, Handler handler) {
+    public InputModeManager(Context context, ActivityMonitor activityMonitor) {
         super();
         loadConfig();
 
-        mHandler = handler;
+        this.activityMonitor = activityMonitor;
+        this.activityMonitor.addActivityChangeListener(activityChangeListener);
         contentResolver = context.getContentResolver();
-
-        SystemUtils.registerProcessObserver(iProcessObserver);
-        SystemUtils.setActivityController(iActivityController,true);
 
         checkInputMode();
     }
@@ -88,7 +79,6 @@ public abstract class InputModeManager {
     }
 
     public abstract void onInputModeChange(int mode);
-    public abstract void onStartDocuments();
 
     private static int getTargetActivityIndex(String activity) {
         int index = 0;
@@ -158,95 +148,20 @@ public abstract class InputModeManager {
         }
     }
 
-    private static final Runnable runnable = new Runnable() {
+    private ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
         @Override
-        public void run() {
-            String topActivity = SystemUtils.getTopActivity();
-            if(topActivity==null) {
-                mHandler.postDelayed(runnable,delayMillis);
-            } else {
-                Log.d("llx", "Runnable:" +topActivity);
+        public void onActivityChanged(String topActivity) {
+            switchSimpleInputMethod(isSimpleInputNeedSwitch(topActivity));
 
-                switchSimpleInputMethod(isSimpleInputNeedSwitch(topActivity));
-
-                isPayActivity = isPayActivity(topActivity);
-                targetActivityIndex = getTargetActivityIndex(topActivity);
-            }
-        }
-    };
-
-    IActivityController iActivityController = new IActivityController.Stub() {
-        @Override
-        public boolean activityStarting(Intent intent, String pkg) {
-            mHandler.removeCallbacks(runnable);
-            mHandler.postDelayed(runnable, delayMillis);
-            String action = intent.getAction();
-            if(action!=null) {
-                switch (action) {
-                    case Intent.ACTION_GET_CONTENT:
-                    case Intent.ACTION_PICK:
-                    case Intent.ACTION_OPEN_DOCUMENT://原神
-                        Log.d("llx", action);
-                        onStartDocuments();
-                        break;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public boolean activityResuming(String pkg) {
-            mHandler.removeCallbacks(runnable);
-            mHandler.postDelayed(runnable, delayMillis);
-            return true;
-        }
-
-        @Override
-        public boolean appCrashed(String processName, int pid, String shortMsg, String longMsg, long timeMillis, String stackTrace) {
-            return true;
-        }
-
-        @Override
-        public int appEarlyNotResponding(String processName, int pid, String annotation) {
-            return 0;
-        }
-
-        @Override
-        public int appNotResponding(String processName, int pid, String processStats) {
-            return 0;
-        }
-
-        @Override
-        public int systemNotResponding(String msg) {
-            return 0;
-        }
-    };
-
-    IProcessObserver iProcessObserver = new IProcessObserver.Stub() {
-        @Override
-        public void onForegroundActivitiesChanged(int pid, int uid, boolean foregroundActivities) {
-            mHandler.removeCallbacks(runnable);
-            mHandler.postDelayed(runnable, delayMillis);
-        }
-
-        @Override
-        public void onProcessStateChanged(int pid, int uid, int procState) {
-        }
-
-        @Override
-        public void onForegroundServicesChanged(int pid, int uid, int serviceTypes) throws RemoteException {
-        }
-
-        @Override
-        public void onProcessDied(int pid, int uid) {
-            mHandler.removeCallbacks(runnable);
-            mHandler.postDelayed(runnable, delayMillis);
+            isPayActivity = isPayActivity(topActivity);
+            targetActivityIndex = getTargetActivityIndex(topActivity);
         }
     };
 
     public void Release() {
-        mHandler.removeCallbacks(runnable);
-        SystemUtils.unregisterProcessObserver(iProcessObserver);
-        SystemUtils.setActivityController(null,false);
+        if(activityMonitor != null) {
+            activityMonitor.removeActivityChangeListener(activityChangeListener);
+            activityMonitor = null;
+        }
     }
 }
