@@ -2,6 +2,7 @@ package com.vrviu.manager;
 
 import android.app.IActivityController;
 import android.app.IProcessObserver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
@@ -37,7 +38,7 @@ public class ActivityMonitor {
     }
 
     public interface ActivityChangeListener {
-        void onActivityChanged(String topActivity);
+        void onActivityChanged(ComponentName componentName);
     }
 
     public interface ActionChangeListener {
@@ -56,13 +57,13 @@ public class ActivityMonitor {
     private final Runnable runnable = new Runnable() {
         @Override
         public void run() {
-            String topActivity = SystemUtils.getTopActivity(mContext);
-            if(topActivity==null) {
+            ComponentName componentName = SystemUtils.getTopActivity(mContext);
+            if(componentName==null) {
                 mHandler.postDelayed(runnable,delayMillis);
             } else {
-                Log.d("llx", "Runnable:" +topActivity);
+                Log.d("llx", "Runnable:" +componentName.toShortString());
                 for (ActivityChangeListener activityChangeListener:activityChangeListeners) {
-                    activityChangeListener.onActivityChanged(topActivity);
+                    activityChangeListener.onActivityChanged(componentName);
                 }
             }
         }

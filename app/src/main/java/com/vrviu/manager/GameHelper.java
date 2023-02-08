@@ -20,14 +20,20 @@ public class GameHelper extends Thread{
     private JSONArray eventArray = null;
     private CaptureHelper captureHelper = null;
     private SceneDetect sceneDetect = null;
+    private String packageName = null;
 
     public GameHelper(CaptureHelper captureHelper, String packageName) {
+        this.packageName = packageName;
         if(loadConfig("/data/local/tmp/GameHelper/GameHelper.json", packageName)) {
             this.captureHelper = captureHelper;
             screenSize = captureHelper.getScreenSize();
             eventArray = getGameinfo(screenSize.x,screenSize.y);
             start();
         }
+    }
+
+    public String getPackageName() {
+        return packageName;
     }
 
     public void setCaptureHelper(CaptureHelper captureHelper) {
@@ -59,6 +65,9 @@ public class GameHelper extends Thread{
     }
 
     private JSONArray getGameinfo(int width, int height) {
+        if(gameinfo==null)
+            return null;
+
         try {
             for (int i = 0; i < gameinfo.length(); i++) {
                 JSONObject jsonObject = gameinfo.getJSONObject(i);

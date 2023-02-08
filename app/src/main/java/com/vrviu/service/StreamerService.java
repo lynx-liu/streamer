@@ -1,6 +1,7 @@
 package com.vrviu.service;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.ComponentName;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
@@ -70,13 +71,17 @@ public class StreamerService extends AccessibilityService {
         activityMonitor.addActivityChangeListener(activityChangeListener);
 
         captureHelper = new CaptureHelper(screenSize);
-        gameHelper = new GameHelper(captureHelper,"com.netease.dwrg");
     }
 
     ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
         @Override
-        public void onActivityChanged(String topActivity) {
-
+        public void onActivityChanged(ComponentName componentName) {
+            if(gameHelper==null) {
+                gameHelper = new GameHelper(captureHelper,componentName.getPackageName());
+            } else if(!gameHelper.getPackageName().equals(componentName.getPackageName())) {
+                gameHelper.interrupt();
+                gameHelper = new GameHelper(captureHelper,componentName.getPackageName());
+            }
         }
     };
 
@@ -153,7 +158,10 @@ public class StreamerService extends AccessibilityService {
                 captureHelper = null;
             }
             captureHelper = new CaptureHelper(screenSize);
-            gameHelper.setCaptureHelper(captureHelper);
+
+            if(gameHelper != null) {
+                gameHelper.setCaptureHelper(captureHelper);
+            }
 
             if(controlTcpClient!=null) {
                 controlTcpClient.setDisplayRotation(screenSize);

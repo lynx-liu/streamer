@@ -1,5 +1,6 @@
 package com.vrviu.manager;
 
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.provider.Settings;
@@ -150,7 +151,8 @@ public abstract class InputModeManager {
 
     private ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
         @Override
-        public void onActivityChanged(String topActivity) {
+        public void onActivityChanged(ComponentName componentName) {
+            String topActivity = componentName.toShortString();
             switchSimpleInputMethod(isSimpleInputNeedSwitch(topActivity));
 
             isPayActivity = isPayActivity(topActivity);

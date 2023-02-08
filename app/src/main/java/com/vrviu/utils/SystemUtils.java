@@ -89,22 +89,33 @@ public final class SystemUtils {
         return bytes;
     }
 
-    public static String getTopActivity(Context context) {
+    public static boolean isAppRunning(Context context, String packageName) {
+        ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        List<ActivityManager.RunningTaskInfo> list = am.getRunningTasks(5);
+        for (ActivityManager.RunningTaskInfo info : list) {
+            if (info.baseActivity.getPackageName().equals(packageName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static ComponentName getTopActivity(Context context) {
         ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
         List<ActivityManager.RunningTaskInfo> list = am.getRunningTasks(1);
         if (list != null && list.size() > 0) {
-            ComponentName componentName = list.get(0).topActivity;
-            return componentName.toShortString();
+            return list.get(0).topActivity;
         }
         return null;
     }
 
     public static boolean isTopPackage(Context context, String packageName) {
         if(packageName!=null && !packageName.isEmpty()) {
-            String topActivity = SystemUtils.getTopActivity(context);
-            if (topActivity == null) {
+            ComponentName componentName = SystemUtils.getTopActivity(context);
+            if (componentName == null) {
                 Log.d("llx", "topActivity is null");
             } else {
+                String topActivity = componentName.toShortString();
                 Log.d("llx", "topActivity: " + topActivity);
                 return topActivity.contains(packageName);
             }
