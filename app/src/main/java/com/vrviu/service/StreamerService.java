@@ -18,6 +18,7 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 
 import com.vrviu.manager.CaptureHelper;
+import com.vrviu.manager.GameHelper;
 import com.vrviu.opengl.EGLRender;
 import com.vrviu.streamer.BuildConfig;
 import com.vrviu.net.ControlTcpClient;
@@ -47,6 +48,7 @@ public class StreamerService extends AccessibilityService {
     private final MediaEncoder mediaEncoder = new MediaEncoder();
 
     private CaptureHelper captureHelper = null;
+    private GameHelper gameHelper = null;
 
     @Override
     public void onCreate() {
@@ -61,6 +63,9 @@ public class StreamerService extends AccessibilityService {
 
         videoTcpServer.start();
         createFloatWindow();
+
+        captureHelper = new CaptureHelper(screenSize);
+        gameHelper = new GameHelper(captureHelper,"com.netease.dwrg");
     }
 
     @Override
@@ -87,16 +92,21 @@ public class StreamerService extends AccessibilityService {
                 SurfaceControl.destroyDisplay(iDisplay);
                 iDisplay = null;
             }
-
-            if (captureHelper != null) {
-                captureHelper.Release();
-                captureHelper = null;
-            }
         }
     }
 
     @Override
     public void onDestroy() {
+        if(gameHelper != null) {
+            gameHelper.interrupt();
+            gameHelper = null;
+        }
+
+        if (captureHelper != null) {
+            captureHelper.Release();
+            captureHelper = null;
+        }
+
         if(controlTcpClient!=null)
             controlTcpClient.interrupt();
         videoTcpServer.interrupt();
@@ -120,6 +130,13 @@ public class StreamerService extends AccessibilityService {
         public void onDisplayChanged(int displayId) {
             Display display = displayManager.getDisplay(0);
             display.getRealSize(screenSize);
+
+            if(captureHelper!=null) {
+                captureHelper.Release();
+                captureHelper = null;
+            }
+            captureHelper = new CaptureHelper(screenSize);
+            gameHelper.setCaptureHelper(captureHelper);
 
             if(controlTcpClient!=null) {
                 controlTcpClient.setDisplayRotation(screenSize);
@@ -205,8 +222,6 @@ public class StreamerService extends AccessibilityService {
                 } else {
                     SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
                 }
-
-                captureHelper = new CaptureHelper(screenSize,new Point(videoWidth,videoHeight),orientation);
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
                 if(minFps>0) delayMillis = 1000/minFps;

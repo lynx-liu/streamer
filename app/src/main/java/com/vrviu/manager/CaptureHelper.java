@@ -18,47 +18,53 @@ public class CaptureHelper {
 
     private IBinder iDisplayCapture = null;
     private ImageReader mImageReader = null;
+    private Point screenSize = null;
 
-    public CaptureHelper(Point screenSize, Point videoSize, int orientation) {
-        Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-
+    public CaptureHelper(Point screenSize) {
+        this.screenSize = screenSize;
         iDisplayCapture = SurfaceControl.createDisplay("capture", true);
-        if(screenSize.x< screenSize.y && orientation==0) {
-            mImageReader = ImageReader.newInstance(videoSize.y, videoSize.x, PixelFormat.RGBA_8888, 2);
-            SurfaceControl.setDisplaySurface(iDisplayCapture, mImageReader.getSurface(), screenRect, new Rect(0,0, videoSize.y, videoSize.x), 3);
-        } else {
-            mImageReader = ImageReader.newInstance(videoSize.x, videoSize.y, PixelFormat.RGBA_8888, 2);
-            SurfaceControl.setDisplaySurface(iDisplayCapture, mImageReader.getSurface(), screenRect, new Rect(0, 0, videoSize.x, videoSize.y), 0);
-        }
+        mImageReader = ImageReader.newInstance(screenSize.x, screenSize.y, PixelFormat.RGBA_8888, 2);
+
+        Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+        SurfaceControl.setDisplaySurface(iDisplayCapture, mImageReader.getSurface(), screenRect, screenRect, 0);
     }
 
-    private Bitmap screenCap(String filename) {
+    public byte[] screenCap(String filename) {
+        if(mImageReader==null) return null;
         Image image = mImageReader.acquireLatestImage();
         if(image==null) return null;
 
-        int width = image.getWidth();
-        int height = image.getHeight();
         final Image.Plane[] planes = image.getPlanes();
         final ByteBuffer buffer = planes[0].getBuffer();
-        int pixelStride = planes[0].getPixelStride();
-        int rowStride = planes[0].getRowStride();
-        int rowPadding = rowStride - pixelStride * width;
-        Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
-        bitmap.copyPixelsFromBuffer(buffer);
-        bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
-        image.close();
 
-        if (filename!=null && bitmap != null) {
+        if (filename!=null) {
+            int width = image.getWidth();
+            int height = image.getHeight();
+            int pixelStride = planes[0].getPixelStride();
+            int rowStride = planes[0].getRowStride();
+            int rowPadding = rowStride - pixelStride * width;
+            Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
+            bitmap.copyPixelsFromBuffer(buffer);
+            bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
+
             try {
                 FileOutputStream out = new FileOutputStream(filename);
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
                 out.flush();
                 out.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        return bitmap;
+
+        byte[] bytes = new byte[buffer.remaining()];
+        buffer.get(bytes);
+        image.close();
+        return bytes;
+    }
+
+    public Point getScreenSize() {
+        return screenSize;
     }
 
     public void Release() {

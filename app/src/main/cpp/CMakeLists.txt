@@ -13,6 +13,7 @@ project("MediaEncoder")
 include_directories(${PROJECT_SOURCE_DIR}/native/jni/include/)
 add_library(opencv_java4 SHARED IMPORTED)
 set_target_properties(opencv_java4 PROPERTIES IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/native/libs/${ANDROID_ABI}/libopencv_java4.so)
+add_library(SceneDetect SHARED SceneDetect.cpp)
 
 # Creates and names a library, sets it as either STATIC
 # or SHARED, and provides the relative paths to its source code.
@@ -49,10 +50,18 @@ find_library( # Sets the name of the path variable.
 # build script, prebuilt third-party libraries, or system libraries.
 
 target_link_libraries( # Specifies the target library.
+        SceneDetect
+        -landroid
+        opencv_java4
+
+        # Links the target library to the log library
+        # included in the NDK.
+        ${log-lib})
+
+target_link_libraries( # Specifies the target library.
         MediaEncoder
         -landroid
         mediandk
-        opencv_java4
 
         # Links the target library to the log library
         # included in the NDK.

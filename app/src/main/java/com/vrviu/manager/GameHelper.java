@@ -1,0 +1,155 @@
+package com.vrviu.manager;
+
+import android.graphics.Point;
+import android.util.Log;
+
+import com.vrviu.streamer.SceneDetect;
+import com.vrviu.utils.JsonUtils;
+import com.vrviu.utils.SystemUtils;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+
+public class GameHelper extends Thread{
+    private int index = 0;
+    private Point screenSize = null;
+    private JSONArray gameinfo = null;
+    private JSONArray eventArray = null;
+    private CaptureHelper captureHelper = null;
+    private SceneDetect sceneDetect = null;
+
+    public GameHelper(CaptureHelper captureHelper, String packageName) {
+        if(loadConfig("/data/local/tmp/GameHelper/GameHelper.json", packageName)) {
+            this.captureHelper = captureHelper;
+            screenSize = captureHelper.getScreenSize();
+            eventArray = getGameinfo(screenSize.x,screenSize.y);
+            start();
+        }
+    }
+
+    public void setCaptureHelper(CaptureHelper captureHelper) {
+        this.captureHelper = captureHelper;
+        screenSize = captureHelper.getScreenSize();
+        eventArray = getGameinfo(screenSize.x,screenSize.y);
+        sceneDetect = null;
+    }
+
+    private boolean loadConfig(String jsonFile, String packageName) {
+        try {
+            JSONObject jsonObject = new JSONObject(SystemUtils.read(jsonFile));
+            JSONArray jsonArray = new JSONArray(jsonObject.getString("game"));
+            for(int i=0;i<jsonArray.length();i++) {
+                JSONObject gameObject = jsonArray.getJSONObject(i);
+                if(gameObject.getString("package").contains(packageName)) {
+                    gameinfo = new JSONArray(gameObject.getString("gameinfo"));
+                    break;
+                }
+            }
+
+            if(gameinfo!=null && gameinfo.length()>0) {
+                return true;
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private JSONArray getGameinfo(int width, int height) {
+        try {
+            for (int i = 0; i < gameinfo.length(); i++) {
+                JSONObject jsonObject = gameinfo.getJSONObject(i);
+                JSONObject screeninfo = new JSONObject(jsonObject.getString("screenSize"));
+                if(screeninfo.getInt("w")==width && screeninfo.getInt("h")==height) {
+                    return new JSONArray(jsonObject.getString("event"));
+                }
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private JSONObject getEvent(int index, JSONArray jsonArray) {
+        try {
+            for(int i=0;i<jsonArray.length();i++) {
+                JSONObject jsonObject = jsonArray.getJSONObject(i);
+                if(jsonObject.getInt("index")==index) {
+                    return jsonObject;
+                }
+            }
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    @Override
+    public void run() {
+        super.run();
+        while (!isInterrupted()) {
+            try {
+                sleep(1000);
+            } catch (InterruptedException e) {
+                break;
+            }
+
+            if(eventArray==null)
+                continue;
+
+            JSONObject eventObject = getEvent(index, eventArray);
+            if(eventObject==null) break;
+
+            if(sceneDetect==null) {
+                String targetFile = JsonUtils.get(eventObject,"PIC", null);
+                float threshold = (float) JsonUtils.get(eventObject, "threshold", 0.8);
+                if(targetFile!=null) {
+                    sceneDetect = new SceneDetect();
+                    sceneDetect.init(targetFile, threshold);
+                    Log.d("llx",targetFile+", "+threshold);
+                }
+            }
+
+            String cmd = JsonUtils.get(eventObject, "sh", null);
+
+            if(sceneDetect != null) {
+                byte[] buffer = captureHelper.screenCap(null);
+                if(buffer==null) continue;
+
+                if(sceneDetect.detect(buffer,screenSize.x,screenSize.y)) {
+                    Log.d("llx","detected: scene"+index);
+                    try {
+                        sleep(2000);
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                    if(cmd!=null) shell(cmd);
+                    sceneDetect = null;
+                    index++;
+                }
+            } else {
+                if(cmd!=null) shell(cmd);
+                index++;
+            }
+        }
+    }
+
+    private boolean shell(String cmd) {
+        Log.d("llx",cmd);
+        try {
+            Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
+            return true;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    @Override
+    public void interrupt() {
+        super.interrupt();
+    }
+}
