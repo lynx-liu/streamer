@@ -123,6 +123,7 @@ public class GameHelper extends Thread{
             }
 
             String cmd = JsonUtils.get(eventObject, "sh", null);
+            int wait = JsonUtils.get(eventObject, "wait", 2000);
 
             if(sceneDetect != null) {
                 byte[] buffer = captureHelper.screenCap(null);
@@ -130,23 +131,43 @@ public class GameHelper extends Thread{
 
                 if(sceneDetect.detect(buffer,screenSize.x,screenSize.y)) {
                     Log.d("llx","detected: scene"+index);
+                    if(cmd!=null) {
+                        try {
+                            shell(wait, cmd);
+                        } catch (InterruptedException e) {
+                            break;
+                        }
+                    }
+                    sceneDetect = null;
+                }
+            } else {
+                if(cmd!=null) {
                     try {
-                        sleep(2000);
+                        shell(wait, cmd);
                     } catch (InterruptedException e) {
                         break;
                     }
-                    if(cmd!=null) shell(cmd);
-                    sceneDetect = null;
-                    index++;
                 }
-            } else {
-                if(cmd!=null) shell(cmd);
+            }
+
+            if(sceneDetect == null) {
                 index++;
+                try {
+                    int report = eventObject.getInt("report");
+                    Log.d("llx", "report:"+report);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
 
-    private boolean shell(String cmd) {
+    private boolean shell(int wait, String cmd) throws InterruptedException {
+        if(wait>0) {
+            Log.d("llx","wait:"+wait+"ms");
+            sleep(wait);
+        }
+
         Log.d("llx",cmd);
         try {
             Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
