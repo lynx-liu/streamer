@@ -77,11 +77,18 @@ public class StreamerService extends AccessibilityService {
         @Override
         public void onActivityChanged(ComponentName componentName) {
             if(gameHelper==null) {
-                gameHelper = new GameHelper(captureHelper,componentName.getPackageName());
+                gameHelper = new GameHelper(captureHelper,componentName.getPackageName(), sceneChangeListener);
             } else if(!gameHelper.getPackageName().equals(componentName.getPackageName())) {
                 gameHelper.interrupt();
-                gameHelper = new GameHelper(captureHelper,componentName.getPackageName());
+                gameHelper = new GameHelper(captureHelper,componentName.getPackageName(), sceneChangeListener);
             }
+        }
+    };
+
+    GameHelper.onSceneChangeListener sceneChangeListener = new GameHelper.onSceneChangeListener() {
+        @Override
+        public void onSceneChanged(int report) {
+            videoTcpServer.reportScene(report);
         }
     };
 

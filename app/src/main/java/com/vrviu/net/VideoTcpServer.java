@@ -22,6 +22,7 @@ public abstract class VideoTcpServer extends TcpServer {
     private static final int requestIdrFrame = 0x03;
     private static final int reconfigureEncode = 0x04;
     private static final int reportFps = 0x0B;
+    private static final int reportScene = 0x0C;
     private static final byte RESPONSE = (byte) 0xFF;
     private static final byte VERSION = 0x11;//协议版本
     private static final byte SUCCEEDED = 0x01;//执行成功
@@ -191,6 +192,28 @@ public abstract class VideoTcpServer extends TcpServer {
                 (byte) ((nSeqnum>>8)&0xFF),
                 (byte) (nSeqnum++&0xFF),
                 fps
+        };
+
+        if(dataOutputStream!=null) {
+            try {
+                dataOutputStream.write(response);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void reportScene(int report) {
+        byte scene = (byte) report;
+        byte index = (byte) (report>>8);
+        byte[] response = new byte[]{
+                0x00,0x00,0x00,0x0A,
+                VERSION,reportScene,0x00,0x00,
+                (byte) ((nSeqnum>>24)&0xFF),
+                (byte) ((nSeqnum>>16)&0xFF),
+                (byte) ((nSeqnum>>8)&0xFF),
+                (byte) (nSeqnum++&0xFF),
+                scene, index
         };
 
         if(dataOutputStream!=null) {

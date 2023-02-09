@@ -21,8 +21,14 @@ public class GameHelper extends Thread{
     private CaptureHelper captureHelper = null;
     private SceneDetect sceneDetect = null;
     private String packageName = null;
+    private onSceneChangeListener mListener = null;
 
-    public GameHelper(CaptureHelper captureHelper, String packageName) {
+    public interface onSceneChangeListener {
+        void onSceneChanged(int report);
+    }
+
+    public GameHelper(CaptureHelper captureHelper, String packageName, onSceneChangeListener listener) {
+        mListener = listener;
         this.packageName = packageName;
         if(loadConfig("/data/local/tmp/GameHelper/GameHelper.json", packageName)) {
             this.captureHelper = captureHelper;
@@ -155,8 +161,11 @@ public class GameHelper extends Thread{
                 try {
                     int report = eventObject.getInt("report");
                     Log.d("llx", "report:"+report);
+                    if(mListener!=null) {
+                        mListener.onSceneChanged(report);
+                    }
                 } catch (JSONException e) {
-                    e.printStackTrace();
+
                 }
             }
         }
@@ -181,5 +190,6 @@ public class GameHelper extends Thread{
     @Override
     public void interrupt() {
         super.interrupt();
+        mListener = null;
     }
 }
