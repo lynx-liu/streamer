@@ -8,6 +8,7 @@ import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
 import android.media.MediaCodecInfo;
+import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -29,6 +30,8 @@ import com.vrviu.streamer.MediaEncoder;
 import com.vrviu.utils.SurfaceControl;
 import com.vrviu.utils.SystemUtils;
 
+import java.io.IOException;
+
 public class StreamerService extends AccessibilityService {
     private static final int NOT_IN_GAME = 9998;
     private static final int MSG_UPDATE_VIEW = 0x01;
@@ -48,6 +51,7 @@ public class StreamerService extends AccessibilityService {
     private DisplayManager displayManager = null;
     private static final Point screenSize = new Point();
     private final MediaEncoder mediaEncoder = new MediaEncoder();
+    private MediaPlayer mMediaPlayer = null;
 
     private ActivityMonitor activityMonitor = null;
     private CaptureHelper captureHelper = null;
@@ -105,13 +109,20 @@ public class StreamerService extends AccessibilityService {
 
     synchronized void releaseStreaming() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            mediaEncoder.stop();
+
+            if(mMediaPlayer!=null) {
+                mMediaPlayer.stop();
+                mMediaPlayer.release();
+                mMediaPlayer = null;
+            }
+
             if(eglRender!=null) {
                 eglRender.Release();
                 eglRender = null;
             }
 
             if (iDisplay != null) {
-                mediaEncoder.stop();
                 SurfaceControl.setDisplaySurface(iDisplay, null, new Rect(), new Rect(), 0);
                 SurfaceControl.destroyDisplay(iDisplay);
                 iDisplay = null;
@@ -219,7 +230,11 @@ public class StreamerService extends AccessibilityService {
 
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
-        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort, boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName, String downloadDir, float sharp, int audioType, int defaulQP, int maxQP, int minQP) {
+        public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort,
+                                      boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height,
+                                      int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode,
+                                      String packageName, String downloadDir, float sharp, int audioType,
+                                      int defaulQP, int maxQP, int minQP, String fakeVideoPath) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
             if(controlTcpClient!=null) controlTcpClient.interrupt();
@@ -247,13 +262,28 @@ public class StreamerService extends AccessibilityService {
                     surface = eglRender.getSurface();
                 }
 
-                Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-                iDisplay = SurfaceControl.createDisplay("streamer", true);
-                if(screenSize.x< screenSize.y && orientation==0) {
-                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0,0, videoHeight, videoWidth), 3);
+                if(fakeVideoPath!=null) {
+                    mMediaPlayer = new MediaPlayer();
+                    try {
+                        mMediaPlayer.setDataSource(fakeVideoPath);
+                        mMediaPlayer.prepare();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    mMediaPlayer.setSurface(surface);
+                    mMediaPlayer.setScreenOnWhilePlaying(true);
+                    mMediaPlayer.setLooping(true);
+                    mMediaPlayer.start();
                 } else {
-                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                    Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+                    iDisplay = SurfaceControl.createDisplay("streamer", true);
+                    if (screenSize.x < screenSize.y && orientation == 0) {
+                        SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
+                    } else {
+                        SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                    }
                 }
+                surface.release();
 
                 mhandler.removeMessages(MSG_UPDATE_VIEW);
                 if(minFps>0) delayMillis = 1000/minFps;
