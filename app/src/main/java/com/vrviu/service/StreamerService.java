@@ -109,8 +109,6 @@ public class StreamerService extends AccessibilityService {
 
     synchronized void releaseStreaming() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            mediaEncoder.stop();
-
             if(mMediaPlayer!=null) {
                 mMediaPlayer.stop();
                 mMediaPlayer.release();
@@ -127,6 +125,7 @@ public class StreamerService extends AccessibilityService {
                 SurfaceControl.destroyDisplay(iDisplay);
                 iDisplay = null;
             }
+            mediaEncoder.stop();
         }
     }
 
@@ -253,6 +252,18 @@ public class StreamerService extends AccessibilityService {
                     videoHeight = Math.min(width, height);
                 }
 
+                if(fakeVideoPath!=null) {
+                    mMediaPlayer = new MediaPlayer();
+                    try {
+                        mMediaPlayer.setDataSource(fakeVideoPath);
+                        mMediaPlayer.prepare();
+                        videoWidth = mMediaPlayer.getVideoWidth();
+                        videoHeight = mMediaPlayer.getVideoHeight();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+
                 int profile = getProfile(videoCodecProfile);
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile,
                         idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, null);
@@ -262,14 +273,7 @@ public class StreamerService extends AccessibilityService {
                     surface = eglRender.getSurface();
                 }
 
-                if(fakeVideoPath!=null) {
-                    mMediaPlayer = new MediaPlayer();
-                    try {
-                        mMediaPlayer.setDataSource(fakeVideoPath);
-                        mMediaPlayer.prepare();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                if(mMediaPlayer!=null) {
                     mMediaPlayer.setSurface(surface);
                     mMediaPlayer.setScreenOnWhilePlaying(true);
                     mMediaPlayer.setLooping(true);
