@@ -64,7 +64,7 @@ public class GameHelper extends Thread{
             if(gameinfo!=null && gameinfo.length()>0) {
                 return true;
             }
-        } catch (JSONException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
         return false;
