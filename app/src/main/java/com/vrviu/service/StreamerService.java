@@ -112,7 +112,6 @@ public class StreamerService extends AccessibilityService {
     synchronized void releaseStreaming() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             if(mMediaPlayer!=null) {
-                mMediaPlayer.stop();
                 mMediaPlayer.release();
                 mMediaPlayer = null;
             }

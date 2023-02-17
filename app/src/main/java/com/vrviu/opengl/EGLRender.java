@@ -11,9 +11,10 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private SurfaceTexture mSurfaceTexture;
     private long mIntervalTime = -1;
     private long mLastRefreshTime = -1;
+    private static final float radio = 0.8f;
 
     public EGLRender(Surface surface, int width, int height, float sharp, int maxFps, Handler handler) {
-        if(maxFps>0) mIntervalTime = 1000/maxFps;
+        if(maxFps>0) mIntervalTime = (long) (1000/maxFps*radio);
         eglWindow = new EglWindow(surface, width, height);
 
         mTextureRender = new TextureRender(width, height, sharp);
@@ -28,7 +29,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
 
     public void setMaxFps(int maxFps) {
         if(maxFps>0) {
-            mIntervalTime = 1000/maxFps;
+            mIntervalTime = (long) (1000/maxFps*radio);
         } else {
             mIntervalTime = -1;
         }
@@ -42,8 +43,10 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
         eglWindow.makeCurrent();
         mSurfaceTexture.updateTexImage();
-        if(SystemClock.uptimeMillis()-mLastRefreshTime>=mIntervalTime) {
-            mLastRefreshTime = SystemClock.uptimeMillis();
+
+        long currentTime = SystemClock.uptimeMillis();
+        if(currentTime-mLastRefreshTime>=mIntervalTime) {
+            mLastRefreshTime = currentTime;
             mTextureRender.drawFrame();
             eglWindow.setPresentationTime(SystemClock.elapsedRealtimeNanos());
             eglWindow.swapBuffers();
