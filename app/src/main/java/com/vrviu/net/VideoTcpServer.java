@@ -39,7 +39,7 @@ public abstract class VideoTcpServer extends TcpServer {
     public abstract boolean startStreaming(String flowId,  String lsIp, boolean tcp,
                                            int lsVideoPort, int lsAudioPort, int lsControlPort,
                                            boolean h264, String videoCodecProfile, int idrPeriod,
-                                           int maxFps, int minFps, int width, int height,
+                                           int maxFps, int minFps, boolean dynamicFps, int width, int height,
                                            int bitrate, int orientationType, int enableSEI,
                                            int rateControlMode, int gameMode,
                                            String packageName, String downloadDir,
@@ -90,6 +90,7 @@ public abstract class VideoTcpServer extends TcpServer {
             int idrPeriod = JsonUtils.get(jsonObject, "idrPeriod", 3600);
             int maxFps = JsonUtils.get(jsonObject, "maxFps", 30);
             int minFps = JsonUtils.get(jsonObject, "minFps", 0);
+            boolean dynamicFps = JsonUtils.get(jsonObject, "dynamicFps", 0)!=0;
             int width = JsonUtils.get(jsonObject, "width", 1280);
             int height = JsonUtils.get(jsonObject, "height", 720);
             int bitrate = JsonUtils.get(jsonObject, "bitrate", 4096);
@@ -123,7 +124,7 @@ public abstract class VideoTcpServer extends TcpServer {
             }
 
             return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
-                    codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType,
+                    codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,dynamicFps,width,height,bitrate,orientationType,
                     enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType,defaulQP,maxQP,minQP,
                     fakeVideoPath);
         } catch (Exception e) {

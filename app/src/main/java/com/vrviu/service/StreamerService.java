@@ -50,6 +50,7 @@ public class StreamerService extends AccessibilityService {
     private EGLRender eglRender = null;
     private DisplayManager displayManager = null;
     private static final Point screenSize = new Point();
+    private static int refreshRate = 60;
     private final MediaEncoder mediaEncoder = new MediaEncoder();
     private MediaPlayer mMediaPlayer = null;
 
@@ -65,8 +66,9 @@ public class StreamerService extends AccessibilityService {
         displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
         Display display = displayManager.getDisplay(0);
         display.getRealSize(screenSize);
+        refreshRate = (int) display.getRefreshRate();
         displayManager.registerDisplayListener(displayListener,null);
-        Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation());
+        Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation()+", refreshRate:"+refreshRate);
 
         videoTcpServer.start();
         createFloatWindow();
@@ -169,6 +171,7 @@ public class StreamerService extends AccessibilityService {
         public void onDisplayChanged(int displayId) {
             Display display = displayManager.getDisplay(0);
             display.getRealSize(screenSize);
+            refreshRate = (int) display.getRefreshRate();
 
             if(captureHelper!=null) {
                 captureHelper.Release();
@@ -230,9 +233,9 @@ public class StreamerService extends AccessibilityService {
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
         public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort,
-                                      boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height,
-                                      int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode,
-                                      String packageName, String downloadDir, float sharp, int audioType,
+                                      boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, boolean dynamicFps,
+                                      int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode,
+                                      int gameMode, String packageName, String downloadDir, float sharp, int audioType,
                                       int defaulQP, int maxQP, int minQP, String fakeVideoPath) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
@@ -265,11 +268,12 @@ public class StreamerService extends AccessibilityService {
                 }
 
                 int profile = getProfile(videoCodecProfile);
-                Surface surface = mediaEncoder.init(videoWidth, videoHeight, maxFps, bitrate * 1000, minFps, h264, profile,
+                int framerate = dynamicFps?refreshRate:maxFps;
+                Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, h264, profile,
                         idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, null);
 
-                if(sharp>0) {
-                    eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, mhandler);
+                if(sharp>0 || dynamicFps) {
+                    eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, maxFps, mhandler);
                     surface = eglRender.getSurface();
                 }
 
@@ -318,12 +322,16 @@ public class StreamerService extends AccessibilityService {
         @Override
         public boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec) {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                if(width!=-1||height!=-1||fps!=-1||frameInterval!=-1||profile!=-1||codec!=-1||orientation!=-1) {
+                if(width!=-1||height!=-1||(fps!=-1&&(eglRender==null||!eglRender.isDynamicFps()))||frameInterval!=-1||profile!=-1||codec!=-1||orientation!=-1) {
                     Log.d("llx","reconfigureEncode {"+(width!=-1?" width:"+width:"")+(height!=-1?" height:"+height:"")+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+(frameInterval!=-1?" frameInterval:"+frameInterval:"")+(profile!=-1?" profile:"+profile:"")+(orientation!=-1?" orientation:"+orientation:"")+(codec!=-1?" codec:"+codec:"")+" }");
                     releaseStreaming();
                     return true;
-                } if (bitrate!=-1) {
-                    mediaEncoder.setVideoBitrate(bitrate * 1000);
+                } if (bitrate!=-1||(fps!=-1&&eglRender!=null&&eglRender.isDynamicFps())) {
+                    Log.d("llx","reconfigureEncode {"+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+" }");
+                    if(bitrate!=-1) mediaEncoder.setVideoBitrate(bitrate * 1000);
+                    if(fps!=-1&&eglRender!=null&&eglRender.isDynamicFps()) {
+                        eglRender.setMaxFps(fps);
+                    }
                     return true;
                 }
             }
