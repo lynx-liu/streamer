@@ -27,8 +27,9 @@ VideoEncoder::VideoEncoder()
     m_sockfd = -1;
     send_tid = 0;
     mVideoTrack = -1;
-    avc = false;
+    videoType = AVC;
     mIsRecording = false;
+    mIsSending = false;
     memset(&spspps,0,sizeof(spspps));
 }
 
@@ -51,8 +52,23 @@ void VideoEncoder::setVideoBitrate(int bitrate) {
     AMediaFormat_delete(videoFormat);
 }
 
-ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, bool h264, int profile, int iFrameInterval,
-                                  int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal) {
+ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, int codec, int profile, int frameInterval,
+                                  int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal,
+                                  const char *ip, int port) {
+    m_sockfd = connectSocket(ip,port);
+    if(m_sockfd<0) {
+        LOGE("video connectSocket failed!");
+        release();
+        return nullptr;
+    }
+
+    mIsSending = true;
+    if(pthread_create(&send_tid, nullptr, send_thread, this)!=0) {
+        LOGE("video send_thread failed!");
+        release();
+        return nullptr;
+    }
+
     if(width==0 || height==0)
         return nullptr;
 
@@ -63,16 +79,16 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     }
 
     timeoutUs = minFps>0? 1000000L/minFps : -1;
-    avc = h264;
+    videoType = static_cast<VideoType>(codec);
 
-    const char *VIDEO_MIME = avc?"video/avc":"video/hevc";
-    AMediaFormat *videoFormat = AMediaFormat_new();
+    const char *VIDEO_MIME = videoType==AVC?"video/avc":"video/hevc";
+    videoFormat = AMediaFormat_new();
     AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, width);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, height);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,bitrate);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, maxFps);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, iFrameInterval);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, frameInterval);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_FRAME_DELAY_US); // µs
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789); //COLOR_FormatSurface
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, maxFps);
@@ -94,7 +110,7 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 1);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
     }
 
-    if(avc) {
+    if(videoType==AVC) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, profile);
     }else {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, 0x01);//MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
@@ -104,7 +120,6 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     videoCodec = AMediaCodec_createEncoderByType(VIDEO_MIME);
     media_status_t videoConfigureStatus = AMediaCodec_configure(videoCodec,
                                                                 videoFormat, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
-    AMediaFormat_delete(videoFormat);
     if (AMEDIA_OK != videoConfigureStatus) {
         LOGE("set video configure failed status-->%d", videoConfigureStatus);
         release();
@@ -122,7 +137,49 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     return surface;
 }
 
-bool VideoEncoder::start(const char *ip, int port) {
+ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec) {
+    if(codec!=-1) videoType = static_cast<VideoType>(codec);
+
+    const char *VIDEO_MIME = videoType==AVC?"video/avc":"video/hevc";
+    AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);
+    if(width!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, width);
+    if(height!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, height);
+    if(bitrate!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,bitrate);
+    if(fps!=-1) {
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, fps);
+        AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, fps);
+    }
+    if(frameInterval!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, frameInterval);
+
+    if(videoType==AVC) {
+        if(profile!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, profile);
+    }else {
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, 0x01);//MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
+    }
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_LEVEL, 0x200);
+
+    stop();
+
+    videoCodec = AMediaCodec_createEncoderByType(VIDEO_MIME);
+    media_status_t videoConfigureStatus = AMediaCodec_configure(videoCodec,
+                                                                videoFormat, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
+    if (AMEDIA_OK != videoConfigureStatus) {
+        LOGE("set video configure failed status-->%d", videoConfigureStatus);
+        release();
+        return nullptr;
+    }
+
+    media_status_t createInputSurfaceStatus = AMediaCodec_createInputSurface(videoCodec, &surface);
+    if (AMEDIA_OK != createInputSurfaceStatus) {
+        LOGE("create Input Surface failed status-->%d", createInputSurfaceStatus);
+        release();
+        return nullptr;
+    }
+    LOGI("reconfigure success");
+    return surface;
+}
+
+bool VideoEncoder::start() {
     mIsRecording = true;
 
 #if CALL_BACK
@@ -138,19 +195,6 @@ bool VideoEncoder::start(const char *ip, int port) {
     media_status_t videoStatus = AMediaCodec_start(videoCodec);
     if (AMEDIA_OK != videoStatus) {
         LOGE("open videoCodec status-->%d", videoStatus);
-        release();
-        return false;
-    }
-
-    m_sockfd = connectSocket(ip,port);
-    if(m_sockfd<0) {
-        LOGE("video connectSocket failed!");
-        release();
-        return false;
-    }
-
-    if(pthread_create(&send_tid, nullptr, send_thread, this)!=0) {
-        LOGE("video send_thread failed!");
         release();
         return false;
     }
@@ -204,7 +248,7 @@ inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferI
     size_t out_size = 0;
     uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
     if (info->size > 0 && info->presentationTimeUs > 0) {
-        if(avc) {
+        if(videoType==AVC) {
             onH264Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
         } else {
             onH265Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
@@ -279,7 +323,7 @@ void* VideoEncoder::send_thread(void *arg) {
     setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
     setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
 
-    while(videoEncoder->mIsRecording) {
+    while(videoEncoder->mIsSending) {
         std::unique_lock<std::mutex> lock_u(videoEncoder->mtx);
         videoEncoder->cond.wait(lock_u);
         while(!videoEncoder->mediaInfoQueue.empty()) {
@@ -387,10 +431,9 @@ int VideoEncoder::connectSocket(const char *ip, int port) {
     return fd;
 }
 
-void VideoEncoder::release() {
+void VideoEncoder::stop() {
     if(!mIsRecording)
         return;
-
     mIsRecording = false;
 
 #if CALL_BACK
@@ -403,13 +446,6 @@ void VideoEncoder::release() {
         encode_tid = 0;
     }
 #endif
-
-    cond.notify_all();
-    if(send_tid!=0) {
-        LOGI("video send pthread_join!!!");
-        pthread_join(send_tid, nullptr);
-        send_tid = 0;
-    }
 
     if (videoCodec) {
         AMediaCodec_stop(videoCodec);
@@ -427,6 +463,24 @@ void VideoEncoder::release() {
         mMuxer = nullptr;
     }
     mVideoTrack = -1;
+    LOGI("video stop!!!");
+}
+
+void VideoEncoder::release() {
+    stop();
+
+    mIsSending = false;
+    cond.notify_all();
+    if(send_tid!=0) {
+        LOGI("video send pthread_join!!!");
+        pthread_join(send_tid, nullptr);
+        send_tid = 0;
+    }
+
+    if(videoFormat!= nullptr) {
+        AMediaFormat_delete(videoFormat);
+        videoFormat = nullptr;
+    }
 
     while(!mediaInfoQueue.empty()) {
         mediaInfoQueue.pop();

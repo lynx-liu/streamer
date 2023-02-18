@@ -29,6 +29,8 @@ public abstract class VideoTcpServer extends TcpServer {
     private static final byte FAILED = 0x00;//执行失败
     private static final byte UNSUPPORT = (byte) 0xFE;//不支持的类型
     private static final byte ERROR = (byte) 0xFF;//版本错误
+    private static final int AVC = 0;
+    private static final int HEVC = 1;
     private static final int HEARTBEAT_TIME = 10_000;
     private static final byte[] heartbeat = new byte[]{0x00,0x00,0x00,0x08,VERSION,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
@@ -38,7 +40,7 @@ public abstract class VideoTcpServer extends TcpServer {
 
     public abstract boolean startStreaming(String flowId,  String lsIp, boolean tcp,
                                            int lsVideoPort, int lsAudioPort, int lsControlPort,
-                                           boolean h264, String videoCodecProfile, int idrPeriod,
+                                           int codec, String videoCodecProfile, int idrPeriod,
                                            int maxFps, int minFps, boolean dynamicFps, int width, int height,
                                            int bitrate, int orientationType, int enableSEI,
                                            int rateControlMode, int gameMode,
@@ -85,7 +87,7 @@ public abstract class VideoTcpServer extends TcpServer {
             int lsVideoPort = JsonUtils.get(jsonObject, "lsVideoPort", -1);//51898
             int lsAudioPort = JsonUtils.get(jsonObject, "lsAudioPort", -1);//51897
             int lsControlPort = JsonUtils.get(jsonObject, "lsControlPort", -1);//5000
-            String codec = JsonUtils.get(jsonObject, "codec", "h264");
+            int codec = JsonUtils.get(jsonObject, "codec", "h264").equals("h264")?AVC:HEVC;
             String videoCodecProfile = JsonUtils.get(jsonObject, "videoCodecProfile", "baseline");
             int idrPeriod = JsonUtils.get(jsonObject, "idrPeriod", 3600);
             int maxFps = JsonUtils.get(jsonObject, "maxFps", 30);
@@ -124,7 +126,7 @@ public abstract class VideoTcpServer extends TcpServer {
             }
 
             return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
-                    codec.equals("h264"),videoCodecProfile,idrPeriod,maxFps,minFps,dynamicFps,width,height,bitrate,orientationType,
+                    codec,videoCodecProfile,idrPeriod,maxFps,minFps,dynamicFps,width,height,bitrate,orientationType,
                     enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType,defaulQP,maxQP,minQP,
                     fakeVideoPath);
         } catch (Exception e) {

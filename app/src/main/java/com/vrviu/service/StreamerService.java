@@ -184,7 +184,16 @@ public class StreamerService extends AccessibilityService {
             if(controlTcpClient!=null) {
                 controlTcpClient.setDisplayRotation(screenSize);
             }
-            releaseStreaming();
+
+            Surface surface = mediaEncoder.reconfigure(-1,-1,-1,-1,-1,-1,-1);
+            Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+            if (screenSize.x < screenSize.y && orientation == 0) {
+                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
+            } else {
+                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+            }
+            surface.release();
+            mediaEncoder.start();
         }
     };
 
@@ -231,7 +240,7 @@ public class StreamerService extends AccessibilityService {
     private final VideoTcpServer videoTcpServer = new VideoTcpServer(51896) {
         @Override
         public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort,
-                                      boolean h264, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, boolean dynamicFps,
+                                      int codec, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, boolean dynamicFps,
                                       int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode,
                                       int gameMode, String packageName, String downloadDir, float sharp, int audioType,
                                       int defaulQP, int maxQP, int minQP, String fakeVideoPath) {
@@ -267,8 +276,9 @@ public class StreamerService extends AccessibilityService {
 
                 int profile = getProfile(videoCodecProfile);
                 int framerate = dynamicFps?refreshRate:maxFps;
-                Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, h264, profile,
-                        idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, null);
+                Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, codec, profile,
+                        idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, lsIp, lsVideoPort, lsAudioPort,
+                        null);
 
                 if(sharp>0 || dynamicFps) {
                     eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, maxFps, mhandler);
@@ -296,7 +306,7 @@ public class StreamerService extends AccessibilityService {
                 if(delayMillis>MAX_DELAY) delayMillis = MAX_DELAY;
                 else if(delayMillis<1000/maxFps) delayMillis = 1000/maxFps+1;
                 mhandler.sendEmptyMessageDelayed(MSG_UPDATE_VIEW,delayMillis);
-                return mediaEncoder.start(lsIp, lsVideoPort, lsAudioPort);
+                return mediaEncoder.start();
             }
             return true;
         }
@@ -322,8 +332,42 @@ public class StreamerService extends AccessibilityService {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                 if(width!=-1||height!=-1||(fps!=-1&&(eglRender==null||!eglRender.isDynamicFps()))||frameInterval!=-1||profile!=-1||codec!=-1||orientation!=-1) {
                     Log.d("llx","reconfigureEncode {"+(width!=-1?" width:"+width:"")+(height!=-1?" height:"+height:"")+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+(frameInterval!=-1?" frameInterval:"+frameInterval:"")+(profile!=-1?" profile:"+profile:"")+(orientation!=-1?" orientation:"+orientation:"")+(codec!=-1?" codec:"+codec:"")+" }");
-                    releaseStreaming();
-                    return true;
+                    if(width!=-1 && height!=-1) {
+                        if (screenSize.x < screenSize.y && orientation % 2 != 0) {
+                            videoWidth = Math.min(width, height);
+                            videoHeight = Math.max(width, height);
+                        } else {
+                            videoWidth = Math.max(width, height);
+                            videoHeight = Math.min(width, height);
+                        }
+                    }
+
+                    if(mMediaPlayer!=null) {
+                        videoWidth = mMediaPlayer.getVideoWidth();
+                        videoHeight = mMediaPlayer.getVideoHeight();
+                    }
+
+                    int maxFps = (fps!=-1 && eglRender!=null && eglRender.isDynamicFps())? refreshRate:fps;
+                    Surface surface = mediaEncoder.reconfigure(videoWidth,videoHeight,bitrate,maxFps,frameInterval,profile,codec);
+
+                    if(eglRender!=null) {
+                        float sharp = eglRender.getSharp();
+                        eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
+                        surface = eglRender.getSurface();
+                    }
+
+                    if(mMediaPlayer!=null) {
+                        mMediaPlayer.setSurface(surface);
+                    } else {
+                        Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+                        if (screenSize.x < screenSize.y && orientation == 0) {
+                            SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
+                        } else {
+                            SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                        }
+                    }
+                    surface.release();
+                    return mediaEncoder.start();
                 } if (bitrate!=-1||(fps!=-1&&eglRender!=null&&eglRender.isDynamicFps())) {
                     Log.d("llx","reconfigureEncode {"+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+" }");
                     if(bitrate!=-1) mediaEncoder.setVideoBitrate(bitrate * 1000);

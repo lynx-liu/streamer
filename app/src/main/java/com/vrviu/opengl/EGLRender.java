@@ -27,6 +27,10 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         return new Surface(mSurfaceTexture);
     }
 
+    public float getSharp() {
+        return mTextureRender.getSharp();
+    }
+
     public void setMaxFps(int maxFps) {
         if(maxFps>0) {
             mIntervalTime = (long) (1000/maxFps*radio);

@@ -25,7 +25,11 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期
     return JNI_VERSION_1_6;
 }
 
-JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height, int maxFps, int bitrate, int minFps, jboolean h264, int profile, int iFrameInterval, int bitrateMode, int audioMimeType, int defaulQP, int maxQP, int minQP, jstring fileName) {
+JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height,
+                                                                    int maxFps, int bitrate, int minFps, jint codec, int profile,
+                                                                    int frameInterval, int bitrateMode, int audioMimeType,
+                                                                    int defaulQP, int maxQP, int minQP,
+                                                                    jstring _ip, jint videoPort, jint audioPort, jstring fileName) {
     if(fileName!= nullptr) {
         const char* filename = env->GetStringUTFChars(fileName, NULL);
 
@@ -42,8 +46,12 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
         env->ReleaseStringUTFChars(fileName, filename);
     }
 
-    audioEncoder->init(env, audioMimeType, mMuxer, reinterpret_cast<int8_t *>(&trackTotal));
-    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, h264, profile, iFrameInterval, bitrateMode, defaulQP, maxQP, minQP, mMuxer, reinterpret_cast<int8_t *>(&trackTotal));
+    const char* ip = env->GetStringUTFChars(_ip,NULL);
+    audioEncoder->init(env, audioMimeType, mMuxer, reinterpret_cast<int8_t *>(&trackTotal), ip, audioPort);
+    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, codec, profile, frameInterval, bitrateMode,
+                                                     defaulQP, maxQP, minQP, mMuxer, reinterpret_cast<int8_t *>(&trackTotal),
+                                                     ip, videoPort);
+    env->ReleaseStringUTFChars(_ip, ip);
 
     if(mMuxer!= nullptr) {
         LOGI("trackTotal: %d", trackTotal);
@@ -51,10 +59,14 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jstring _ip, jint videoPort, jint audioPort) {
-    const char* ip = env->GetStringUTFChars(_ip,NULL);
-    bool ret = videoEncoder->start(ip, videoPort) & audioEncoder->start(ip, audioPort);
-    env->ReleaseStringUTFChars(_ip, ip);
+JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEnv *env, jobject thiz, int width, int height,
+                                                                           int bitrate, int fps, int frameInterval, int profile, int codec) {
+    ANativeWindow *nativeWindow = videoEncoder->reconfigure(width, height, bitrate, fps, frameInterval, profile, codec);
+    return ANativeWindow_toSurface(env,nativeWindow);
+}
+
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz) {
+    bool ret = videoEncoder->start() & audioEncoder->start();
     return ret;
 }
 

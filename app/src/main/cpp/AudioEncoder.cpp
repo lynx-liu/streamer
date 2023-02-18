@@ -31,7 +31,14 @@ AudioEncoder::~AudioEncoder()
     release();
 }
 
-bool AudioEncoder::init(JNIEnv *env, int mimeType, AMediaMuxer *muxer, int8_t *tracktotal) {
+bool AudioEncoder::init(JNIEnv *env, int mimeType, AMediaMuxer *muxer, int8_t *tracktotal, const char *ip, int port) {
+    m_sockfd = connectSocket(ip,port);
+    if(m_sockfd<0) {
+        LOGI("audio connectSocket failed!");
+        release();
+        return false;
+    }
+
     env->GetJavaVM(&jvm);
     audioType = mimeType;
     if(audioType==AUDIO_PCM)
@@ -67,15 +74,8 @@ bool AudioEncoder::init(JNIEnv *env, int mimeType, AMediaMuxer *muxer, int8_t *t
     return true;
 }
 
-bool AudioEncoder::start(const char *ip, int port) {
+bool AudioEncoder::start() {
     mIsRecording = true;
-
-    m_sockfd = connectSocket(ip,port);
-    if(m_sockfd<0) {
-        LOGI("audio connectSocket failed!");
-        release();
-        return false;
-    }
 
     if(pthread_create(&getpcm_tid, nullptr, getpcm_thread, this)!=0) {
         LOGI("audio getpcm_thread failed!");

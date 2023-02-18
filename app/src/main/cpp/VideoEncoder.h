@@ -40,6 +40,11 @@ struct VideoHeader {
 };
 #pragma pack(pop)
 
+enum VideoType {
+    AVC,
+    HEVC
+};
+
 typedef struct ABuffer {
     uint8_t*    data;
     VideoHeader header;
@@ -57,13 +62,15 @@ private:
     int m_sockfd = -1;
     ABuffer spspps;
 
+    AMediaFormat *videoFormat = NULL;
     ANativeWindow *surface = NULL;
     AMediaCodec *videoCodec = NULL;
     AMediaMuxer *mMuxer = NULL;
     int mVideoTrack;
     bool mIsRecording;
+    bool mIsSending;
     int64_t timeoutUs = -1;
-    bool avc = false;
+    VideoType videoType = AVC;
     int8_t *trackTotal;
 
     pthread_t send_tid = 0;
@@ -95,9 +102,12 @@ public:
     ~VideoEncoder();
     void requestSyncFrame();
     void setVideoBitrate(int bitrate);
-    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, bool h264, int profile, int iFrameInterval,
-                        int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal);
-    bool start(const char *ip, int port);
+    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, int codec, int profile, int frameInterval,
+                        int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal,
+                        const char *ip, int port);
+    bool start();
+    ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec);
+    void stop();
     void release();
 };
 

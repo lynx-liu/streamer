@@ -125,6 +125,10 @@ public  class TextureRender {
         return mTextureID;
     }
 
+    public float getSharp() {
+        return mSharpLevel;
+    }
+
     public void drawFrame() {
         GLES20.glUseProgram(mProgram);
         GLES20.glEnableVertexAttribArray(maPositionHandle);
