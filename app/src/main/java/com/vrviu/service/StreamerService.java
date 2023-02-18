@@ -193,7 +193,7 @@ public class StreamerService extends AccessibilityService {
                 SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
             }
             surface.release();
-            mediaEncoder.start();
+            mediaEncoder.start(true);
         }
     };
 
@@ -306,7 +306,7 @@ public class StreamerService extends AccessibilityService {
                 if(delayMillis>MAX_DELAY) delayMillis = MAX_DELAY;
                 else if(delayMillis<1000/maxFps) delayMillis = 1000/maxFps+1;
                 mhandler.sendEmptyMessageDelayed(MSG_UPDATE_VIEW,delayMillis);
-                return mediaEncoder.start();
+                return mediaEncoder.start(false);
             }
             return true;
         }
@@ -367,7 +367,7 @@ public class StreamerService extends AccessibilityService {
                         }
                     }
                     surface.release();
-                    return mediaEncoder.start();
+                    return mediaEncoder.start(true);
                 } if (bitrate!=-1||(fps!=-1&&eglRender!=null&&eglRender.isDynamicFps())) {
                     Log.d("llx","reconfigureEncode {"+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+" }");
                     if(bitrate!=-1) mediaEncoder.setVideoBitrate(bitrate * 1000);

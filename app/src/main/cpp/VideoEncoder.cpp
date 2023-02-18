@@ -27,7 +27,7 @@ VideoEncoder::VideoEncoder()
     m_sockfd = -1;
     send_tid = 0;
     mVideoTrack = -1;
-    videoType = AVC;
+    videoParam.videoType = AVC;
     mIsRecording = false;
     mIsSending = false;
     memset(&spspps,0,sizeof(spspps));
@@ -69,49 +69,64 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
         return nullptr;
     }
 
-    if(width==0 || height==0)
-        return nullptr;
-
     mMuxer = muxer;
     trackTotal = tracktotal;
     if(mMuxer!= nullptr) {
         (*trackTotal)++;
     }
 
-    timeoutUs = minFps>0? 1000000L/minFps : -1;
-    videoType = static_cast<VideoType>(codec);
+    videoParam.width = width;
+    videoParam.height = height;
+    videoParam.bitrate = bitrate;
+    videoParam.minFps = minFps;
+    videoParam.maxFps = maxFps;
+    videoParam.frameInterval = frameInterval;
+    videoParam.bitrateMode = bitrateMode;
+    videoParam.profile = profile;
+    videoParam.videoType = static_cast<VideoType>(codec);
+    videoParam.defaulQP = defaulQP;
+    videoParam.minQP = minQP;
+    videoParam.maxQP = maxQP;
+    return createEncoder();
+}
 
-    const char *VIDEO_MIME = videoType==AVC?"video/avc":"video/hevc";
-    videoFormat = AMediaFormat_new();
+ANativeWindow* VideoEncoder::createEncoder() {
+    if(videoParam.width==0 || videoParam.height==0)
+        return nullptr;
+
+    timeoutUs = videoParam.minFps>0? 1000000L/videoParam.minFps : -1;
+    const char *VIDEO_MIME = videoParam.videoType==AVC?"video/avc":"video/hevc";
+
+    AMediaFormat *videoFormat = AMediaFormat_new();
     AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, width);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, height);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,bitrate);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, maxFps);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, frameInterval);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, videoParam.width);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, videoParam.height);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,videoParam.bitrate);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, videoParam.maxFps);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, videoParam.frameInterval);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_FRAME_DELAY_US); // µs
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789); //COLOR_FormatSurface
-    AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, maxFps);
+    AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, videoParam.maxFps);
     AMediaFormat_setInt32(videoFormat, "max-bframes", 0);//MediaFormat.KEY_MAX_B_FRAMES
 
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i",defaulQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i",videoParam.defaulQP);
     AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i-enable",1);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-min",minQP);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-max",maxQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-min",videoParam.minQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-max",videoParam.maxQP);
 
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p",defaulQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p",videoParam.defaulQP);
     AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p-enable",1);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-min",minQP);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-max",maxQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-min",videoParam.minQP);
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-max",videoParam.maxQP);
 
-    if(bitrateMode==0) {
+    if(videoParam.bitrateMode==0) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 2);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
     } else {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 1);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
     }
 
-    if(videoType==AVC) {
-        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, profile);
+    if(videoParam.videoType==AVC) {
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, videoParam.profile);
     }else {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, 0x01);//MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
     }
@@ -120,6 +135,8 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     videoCodec = AMediaCodec_createEncoderByType(VIDEO_MIME);
     media_status_t videoConfigureStatus = AMediaCodec_configure(videoCodec,
                                                                 videoFormat, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
+    AMediaFormat_delete(videoFormat);
+
     if (AMEDIA_OK != videoConfigureStatus) {
         LOGE("set video configure failed status-->%d", videoConfigureStatus);
         release();
@@ -138,45 +155,16 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
 }
 
 ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec) {
-    if(codec!=-1) videoType = static_cast<VideoType>(codec);
-
-    const char *VIDEO_MIME = videoType==AVC?"video/avc":"video/hevc";
-    AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);
-    if(width!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_WIDTH, width);
-    if(height!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_HEIGHT, height);
-    if(bitrate!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,bitrate);
-    if(fps!=-1) {
-        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, fps);
-        AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, fps);
-    }
-    if(frameInterval!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, frameInterval);
-
-    if(videoType==AVC) {
-        if(profile!=-1) AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, profile);
-    }else {
-        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, 0x01);//MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
-    }
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_LEVEL, 0x200);
+    if(codec!=-1) videoParam.videoType = static_cast<VideoType>(codec);
+    if(width!=-1) videoParam.width = width;
+    if(height!=-1) videoParam.height = height;
+    if(bitrate!=-1) videoParam.bitrate = bitrate;
+    if(fps!=-1) videoParam.maxFps = fps;
+    if(frameInterval!=-1) videoParam.frameInterval = frameInterval;
+    if(profile!=-1) videoParam.profile = profile;
 
     stop();
-
-    videoCodec = AMediaCodec_createEncoderByType(VIDEO_MIME);
-    media_status_t videoConfigureStatus = AMediaCodec_configure(videoCodec,
-                                                                videoFormat, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
-    if (AMEDIA_OK != videoConfigureStatus) {
-        LOGE("set video configure failed status-->%d", videoConfigureStatus);
-        release();
-        return nullptr;
-    }
-
-    media_status_t createInputSurfaceStatus = AMediaCodec_createInputSurface(videoCodec, &surface);
-    if (AMEDIA_OK != createInputSurfaceStatus) {
-        LOGE("create Input Surface failed status-->%d", createInputSurfaceStatus);
-        release();
-        return nullptr;
-    }
-    LOGI("reconfigure success");
-    return surface;
+    return createEncoder();
 }
 
 bool VideoEncoder::start() {
@@ -242,13 +230,15 @@ inline void VideoEncoder::notifyOutputAvailable(int32_t index, AMediaCodecBuffer
 }
 
 inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info) {
+    if(!mIsRecording) return;
+
 #if NDK_DEBUG
     LOGI("index(%d), (%d, %d, %lld, 0x%x)", outIndex, info->offset, info->size, (long long)info->presentationTimeUs, info->flags);
 #endif
     size_t out_size = 0;
     uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
     if (info->size > 0 && info->presentationTimeUs > 0) {
-        if(videoType==AVC) {
+        if(videoParam.videoType==AVC) {
             onH264Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
         } else {
             onH265Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
@@ -475,11 +465,6 @@ void VideoEncoder::release() {
         LOGI("video send pthread_join!!!");
         pthread_join(send_tid, nullptr);
         send_tid = 0;
-    }
-
-    if(videoFormat!= nullptr) {
-        AMediaFormat_delete(videoFormat);
-        videoFormat = nullptr;
     }
 
     while(!mediaInfoQueue.empty()) {

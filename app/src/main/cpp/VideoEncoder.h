@@ -55,6 +55,21 @@ typedef struct AMediaInfo {
     AMediaCodecBufferInfo bufferInfo;
 } AMediaInfo;
 
+typedef struct VideoParam {
+    VideoType videoType;
+    int width;
+    int height;
+    int minFps;
+    int maxFps;
+    int bitrate;
+    int profile;
+    int frameInterval;
+    int bitrateMode;
+    int defaulQP;
+    int maxQP;
+    int minQP;
+} VideoParam;
+
 class VideoEncoder
 {
 private:
@@ -62,7 +77,7 @@ private:
     int m_sockfd = -1;
     ABuffer spspps;
 
-    AMediaFormat *videoFormat = NULL;
+    VideoParam videoParam;
     ANativeWindow *surface = NULL;
     AMediaCodec *videoCodec = NULL;
     AMediaMuxer *mMuxer = NULL;
@@ -70,7 +85,6 @@ private:
     bool mIsRecording;
     bool mIsSending;
     int64_t timeoutUs = -1;
-    VideoType videoType = AVC;
     int8_t *trackTotal;
 
     pthread_t send_tid = 0;
@@ -79,6 +93,7 @@ private:
     std::queue<AMediaInfo> mediaInfoQueue;
 
 private:
+    ANativeWindow* createEncoder();
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
     static void* encode_thread(void *arg);
 

@@ -144,7 +144,7 @@ void* AudioEncoder::getpcm_thread(void *arg) {
 #endif
     jniEnv->DeleteLocalRef(jPcmBuffer);
     audioEncoder->jvm->DetachCurrentThread();
-    LOGI("audio encode_thread exit");
+    LOGI("audio getpcm_thread exit");
     return nullptr;
 }
 
