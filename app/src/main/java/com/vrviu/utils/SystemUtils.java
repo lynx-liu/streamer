@@ -173,7 +173,7 @@ public final class SystemUtils {
             inputStream.read(buffer);
             return new String(buffer,"GB2312");
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.d("llx",e.toString());
         }
         return null;
     }

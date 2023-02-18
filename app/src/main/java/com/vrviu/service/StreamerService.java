@@ -122,7 +122,6 @@ public class StreamerService extends AccessibilityService {
             }
 
             if (iDisplay != null) {
-                SurfaceControl.setDisplaySurface(iDisplay, null, new Rect(), new Rect(), 0);
                 SurfaceControl.destroyDisplay(iDisplay);
                 iDisplay = null;
             }
@@ -132,6 +131,7 @@ public class StreamerService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        releaseStreaming();
         if(gameHelper != null) {
             gameHelper.interrupt();
             gameHelper = null;
@@ -151,7 +151,6 @@ public class StreamerService extends AccessibilityService {
             controlTcpClient.interrupt();
         videoTcpServer.interrupt();
         displayManager.unregisterDisplayListener(displayListener);
-        releaseStreaming();
         super.onDestroy();
     }
 

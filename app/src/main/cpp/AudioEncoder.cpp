@@ -197,7 +197,7 @@ inline void AudioEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
 #if NDK_DEBUG
         int32_t start = systemmilltime();
 #endif
-        outIndex = AMediaCodec_dequeueOutputBuffer(audioCodec, info, -1);
+        outIndex = AMediaCodec_dequeueOutputBuffer(audioCodec, info, 1000);
 #if NDK_DEBUG
         LOGI("AMediaCodec_dequeueOutputBuffer: %zd, %d, %d ms\r\n", outIndex, info->offset, systemmilltime() - start);
 #endif

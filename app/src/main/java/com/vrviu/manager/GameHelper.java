@@ -65,7 +65,7 @@ public class GameHelper extends Thread{
                 return true;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.d("llx",e.toString());
         }
         return false;
     }
