@@ -370,6 +370,7 @@ public class StreamerService extends AccessibilityService {
                     Surface surface = mediaEncoder.reconfigure(videoWidth,videoHeight,bitrate,maxFps,frameInterval,profile,codec);
 
                     if(eglRender!=null) {
+                        if(fps==-1) fps = eglRender.getFps();
                         float sharp = eglRender.getSharp();
                         eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
                         surface = eglRender.getSurface();
