@@ -274,6 +274,9 @@ public class StreamerService extends AccessibilityService {
                     }
                 }
 
+                videoWidth &= 0xFFF8;
+                videoHeight &= 0xFFF8;
+
                 int profile = getProfile(videoCodecProfile);
                 int framerate = dynamicFps?refreshRate:maxFps;
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, codec, profile,
@@ -346,6 +349,9 @@ public class StreamerService extends AccessibilityService {
                         videoWidth = mMediaPlayer.getVideoWidth();
                         videoHeight = mMediaPlayer.getVideoHeight();
                     }
+
+                    videoWidth &= 0xFFF8;
+                    videoHeight &= 0xFFF8;
 
                     int maxFps = (fps!=-1 && eglRender!=null && eglRender.isDynamicFps())? refreshRate:fps;
                     Surface surface = mediaEncoder.reconfigure(videoWidth,videoHeight,bitrate,maxFps,frameInterval,profile,codec);
