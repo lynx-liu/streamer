@@ -51,7 +51,10 @@ public class GameHelper extends Thread{
 
     private boolean loadConfig(String jsonFile, String packageName) {
         try {
-            JSONObject jsonObject = new JSONObject(SystemUtils.read(jsonFile));
+            String jsonString = SystemUtils.read(jsonFile);
+            if(jsonString==null) return false;
+
+            JSONObject jsonObject = new JSONObject(jsonString);
             JSONArray jsonArray = new JSONArray(jsonObject.getString("game"));
             for(int i=0;i<jsonArray.length();i++) {
                 JSONObject gameObject = jsonArray.getJSONObject(i);

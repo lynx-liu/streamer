@@ -69,7 +69,6 @@ public class CaptureHelper {
 
     public void Release() {
         if (iDisplayCapture != null) {
-            SurfaceControl.setDisplaySurface(iDisplayCapture, null, new Rect(), new Rect(), 0);
             SurfaceControl.destroyDisplay(iDisplayCapture);
             iDisplayCapture = null;
         }

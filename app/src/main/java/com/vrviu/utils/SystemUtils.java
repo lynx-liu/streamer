@@ -168,6 +168,8 @@ public final class SystemUtils {
     public static String read(String fileName){
         try {
             File file = new File(fileName);
+            if(!file.exists()) return null;
+
             InputStream inputStream= new FileInputStream(file);
             byte[] buffer=new byte[inputStream.available()];
             inputStream.read(buffer);
