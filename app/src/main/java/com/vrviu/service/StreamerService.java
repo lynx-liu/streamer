@@ -63,6 +63,7 @@ public class StreamerService extends AccessibilityService {
         super.onCreate();
         SystemUtils.setProperty("vrviu.version.streamer", BuildConfig.VERSION_NAME);
 
+        iDisplay = SurfaceControl.createDisplay("streamer", true);
         displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
         Display display = displayManager.getDisplay(0);
         display.getRealSize(screenSize);
@@ -121,10 +122,6 @@ public class StreamerService extends AccessibilityService {
                 eglRender = null;
             }
 
-            if (iDisplay != null) {
-                SurfaceControl.destroyDisplay(iDisplay);
-                iDisplay = null;
-            }
             mediaEncoder.stop();
         }
     }
@@ -151,6 +148,11 @@ public class StreamerService extends AccessibilityService {
             controlTcpClient.interrupt();
         videoTcpServer.interrupt();
         displayManager.unregisterDisplayListener(displayListener);
+
+        if (iDisplay != null) {
+            SurfaceControl.destroyDisplay(iDisplay);
+            iDisplay = null;
+        }
         super.onDestroy();
     }
 
@@ -186,11 +188,23 @@ public class StreamerService extends AccessibilityService {
             }
 
             Surface surface = mediaEncoder.reconfigure(-1,-1,-1,-1,-1,-1,-1);
-            Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-            if (screenSize.x < screenSize.y && orientation == 0) {
-                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
+
+            if(eglRender!=null) {
+                int fps = eglRender.getFps();
+                float sharp = eglRender.getSharp();
+                eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
+                surface = eglRender.getSurface();
+            }
+
+            if(mMediaPlayer!=null) {
+                mMediaPlayer.setSurface(surface);
             } else {
-                SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
+                if (screenSize.x < screenSize.y && orientation == 0) {
+                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
+                } else {
+                    SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoWidth, videoHeight), 0);
+                }
             }
             surface.release();
             mediaEncoder.start(true);
@@ -295,7 +309,6 @@ public class StreamerService extends AccessibilityService {
                     mMediaPlayer.start();
                 } else {
                     Rect screenRect = new Rect(0, 0, screenSize.x, screenSize.y);
-                    iDisplay = SurfaceControl.createDisplay("streamer", true);
                     if (screenSize.x < screenSize.y && orientation == 0) {
                         SurfaceControl.setDisplaySurface(iDisplay, surface, screenRect, new Rect(0, 0, videoHeight, videoWidth), 3);
                     } else {

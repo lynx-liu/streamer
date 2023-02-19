@@ -11,9 +11,11 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private SurfaceTexture mSurfaceTexture;
     private long mIntervalTime = -1;
     private long mLastRefreshTime = -1;
+    private int fps = -1;
     private static final float radio = 0.8f;
 
     public EGLRender(Surface surface, int width, int height, float sharp, int maxFps, Handler handler) {
+        fps = maxFps;
         if(maxFps>0) mIntervalTime = (long) (1000/maxFps*radio);
         eglWindow = new EglWindow(surface, width, height);
 
@@ -32,11 +34,16 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     }
 
     public void setMaxFps(int maxFps) {
+        fps = maxFps;
         if(maxFps>0) {
             mIntervalTime = (long) (1000/maxFps*radio);
         } else {
             mIntervalTime = -1;
         }
+    }
+
+    public int getFps() {
+        return fps;
     }
 
     public boolean isDynamicFps() {
