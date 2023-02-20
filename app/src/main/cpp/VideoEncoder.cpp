@@ -69,11 +69,7 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
         return nullptr;
     }
 
-    mMuxer = muxer;
     trackTotal = tracktotal;
-    if(mMuxer!= nullptr) {
-        (*trackTotal)++;
-    }
 
     videoParam.width = width;
     videoParam.height = height;
@@ -87,12 +83,17 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     videoParam.defaulQP = defaulQP;
     videoParam.minQP = minQP;
     videoParam.maxQP = maxQP;
-    return createEncoder();
+    return createEncoder(muxer);
 }
 
-ANativeWindow* VideoEncoder::createEncoder() {
+ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     if(videoParam.width==0 || videoParam.height==0)
         return nullptr;
+
+    mMuxer = muxer;
+    if(mMuxer!= nullptr) {
+        (*trackTotal)++;
+    }
 
     timeoutUs = videoParam.minFps>0? 1000000L/videoParam.minFps : -1;
     const char *VIDEO_MIME = videoParam.videoType==AVC?"video/avc":"video/hevc";
@@ -109,15 +110,17 @@ ANativeWindow* VideoEncoder::createEncoder() {
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, videoParam.maxFps);
     AMediaFormat_setInt32(videoFormat, "max-bframes", 0);//MediaFormat.KEY_MAX_B_FRAMES
 
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i",videoParam.defaulQP);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i-enable",1);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-min",videoParam.minQP);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-max",videoParam.maxQP);
+    if(videoParam.defaulQP==0 && videoParam.minQP==0 && videoParam.maxQP==0) {
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i", videoParam.defaulQP);
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i-enable", 1);
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-min", videoParam.minQP);
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-max", videoParam.maxQP);
 
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p",videoParam.defaulQP);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p-enable",1);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-min",videoParam.minQP);
-    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-max",videoParam.maxQP);
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p", videoParam.defaulQP);
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-p-enable", 1);
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-min", videoParam.minQP);
+        AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-p-max", videoParam.maxQP);
+    }
 
     if(videoParam.bitrateMode==0) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 2);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
@@ -154,7 +157,7 @@ ANativeWindow* VideoEncoder::createEncoder() {
     return surface;
 }
 
-ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec) {
+ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec, AMediaMuxer *muxer) {
     if(codec!=-1) videoParam.videoType = static_cast<VideoType>(codec);
     if(width!=-1) videoParam.width = width;
     if(height!=-1) videoParam.height = height;
@@ -162,12 +165,12 @@ ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int
     if(fps!=-1) videoParam.maxFps = fps;
     if(frameInterval!=-1) videoParam.frameInterval = frameInterval;
     if(profile!=-1) videoParam.profile = profile;
-
-    stop();
-    return createEncoder();
+    return createEncoder(muxer);
 }
 
 bool VideoEncoder::start() {
+    if(mIsRecording)
+        return true;
     mIsRecording = true;
 
 #if CALL_BACK
@@ -258,7 +261,7 @@ inline void VideoEncoder::onFormatChange(AMediaFormat *format) {
 
     if(mMuxer) {
         mVideoTrack = AMediaMuxer_addTrack(mMuxer, format);
-        LOGI("videoTrack: %d", mVideoTrack);
+        LOGI("trackTotal: %d, videoTrack: %d", (*trackTotal), mVideoTrack);
         if(mVideoTrack>=(*trackTotal)-1) {
             AMediaMuxer_start(mMuxer);
             LOGI("MediaMuxer start");

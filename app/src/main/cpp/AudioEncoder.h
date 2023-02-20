@@ -66,8 +66,10 @@ private:
 public:
     AudioEncoder();
     ~AudioEncoder();
+    bool createEncoder(AMediaMuxer *muxer);
     bool init(JNIEnv *env, int mimeType, AMediaMuxer *muxer, int8_t *tracktotal, const char *ip, int port);
     bool start();
+    void stop();
     void release();
 };
 

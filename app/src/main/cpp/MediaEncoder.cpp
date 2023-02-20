@@ -12,6 +12,7 @@
 extern "C" {
 #endif
 
+int fd = 0;
 uint8_t trackTotal = 0;
 AMediaMuxer *mMuxer = NULL;
 AudioEncoder *audioEncoder = new AudioEncoder();
@@ -34,13 +35,12 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
         const char* filename = env->GetStringUTFChars(fileName, NULL);
 
         if(filename) {
-            int fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
+            fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
             if (!fd) {
                 LOGE("open media file failed-->%d", fd);
             } else {
                 mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
                 AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
-                close(fd);
             }
         }
         env->ReleaseStringUTFChars(fileName, filename);
@@ -61,16 +61,33 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
 
 JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEnv *env, jobject thiz, int width, int height,
                                                                            int bitrate, int fps, int frameInterval, int profile, int codec) {
-    ANativeWindow *nativeWindow = videoEncoder->reconfigure(width, height, bitrate, fps, frameInterval, profile, codec);
+    videoEncoder->stop();
+
+    if (mMuxer) {
+        audioEncoder->stop();
+
+        LOGI("trackTotal: %d", trackTotal);
+        AMediaMuxer_stop(mMuxer);
+        AMediaMuxer_delete(mMuxer);
+        mMuxer = nullptr;
+
+        if(fd) {
+            mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
+            AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
+        }
+
+        audioEncoder->createEncoder(mMuxer);
+    }
+
+    ANativeWindow *nativeWindow = videoEncoder->reconfigure(width, height, bitrate, fps, frameInterval, profile, codec, mMuxer);
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz, jboolean onlyVideo) {
-    if(onlyVideo) return videoEncoder->start();
-    return videoEncoder->start() & audioEncoder->start();
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz) {
+    return videoEncoder->start() && audioEncoder->start();
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_stop(JNIEnv *env, jobject thiz) {
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_release(JNIEnv *env, jobject thiz) {
     audioEncoder->release();
     videoEncoder->release();
 
@@ -79,6 +96,11 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_stop(JNIEnv *env
         AMediaMuxer_stop(mMuxer);
         AMediaMuxer_delete(mMuxer);
         mMuxer = nullptr;
+    }
+
+    if(fd) {
+        close(fd);
+        fd = 0;
     }
     return true;
 }

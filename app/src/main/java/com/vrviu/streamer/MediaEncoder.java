@@ -15,8 +15,8 @@ public class MediaEncoder {
                                 String ip, int videoPort, int audioPort, String fileName);
      public native Surface reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec);
 
-     public native boolean start(boolean onlyVideo);
-     public native boolean stop();
+     public native boolean start();
+     public native boolean release();
      public native void requestSyncFrame();
      public native void setVideoBitrate(int bitrate);
 }

@@ -45,8 +45,18 @@ bool AudioEncoder::init(JNIEnv *env, int mimeType, AMediaMuxer *muxer, int8_t *t
         return true;
 
     if(audioType!=AUDIO_OPUS) {
-        mMuxer = muxer;
         trackTotal = tracktotal;
+    }
+
+    return createEncoder(muxer);
+}
+
+bool AudioEncoder::createEncoder(AMediaMuxer *muxer) {
+    if(audioType==AUDIO_PCM)
+        return true;
+
+    if(audioType!=AUDIO_OPUS) {
+        mMuxer = muxer;
         if (mMuxer != nullptr) {
             (*trackTotal)++;
         }
@@ -75,13 +85,9 @@ bool AudioEncoder::init(JNIEnv *env, int mimeType, AMediaMuxer *muxer, int8_t *t
 }
 
 bool AudioEncoder::start() {
+    if(mIsRecording)
+        return true;
     mIsRecording = true;
-
-    if(pthread_create(&getpcm_tid, nullptr, getpcm_thread, this)!=0) {
-        LOGI("audio getpcm_thread failed!");
-        release();
-        return false;
-    }
 
     if(audioCodec!=NULL) {
         media_status_t audioStatus = AMediaCodec_start(audioCodec);
@@ -96,6 +102,12 @@ bool AudioEncoder::start() {
             release();
             return false;
         }
+    }
+
+    if(pthread_create(&getpcm_tid, nullptr, getpcm_thread, this)!=0) {
+        LOGI("audio getpcm_thread failed!");
+        release();
+        return false;
     }
     LOGI("audio start success");
     return true;
@@ -220,7 +232,7 @@ inline void AudioEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
 
             if(mMuxer) {
                 mAudioTrack = AMediaMuxer_addTrack(mMuxer, outFormat);
-                LOGI("audioTrack: %d", mAudioTrack);
+                LOGI("trackTotal: %d, audioTrack: %d", (*trackTotal), mAudioTrack);
                 if(mAudioTrack>=(*trackTotal)-1) {
                     AMediaMuxer_start(mMuxer);
                     LOGI("MediaMuxer start");
@@ -263,11 +275,17 @@ int AudioEncoder::connectSocket(const char *ip, int port) {
     return fd;
 }
 
-void AudioEncoder::release() {
+void AudioEncoder::stop() {
     if(!mIsRecording)
         return;
 
     mIsRecording = false;
+    if(getpcm_tid!=0) {
+        LOGI("audio getpcm pthread_join!!!");
+        pthread_join(getpcm_tid, nullptr);
+        getpcm_tid = 0;
+    }
+
     if(encode_tid!=0) {
         LOGI("audio encode pthread_join!!!");
         pthread_join(encode_tid, nullptr);
@@ -280,17 +298,15 @@ void AudioEncoder::release() {
         audioCodec = nullptr;
     }
 
-    if(getpcm_tid!=0) {
-        LOGI("audio getpcm pthread_join!!!");
-        pthread_join(getpcm_tid, nullptr);
-        getpcm_tid = 0;
-    }
-
     if(mMuxer!= nullptr) {
         (*trackTotal)--;
         mMuxer = nullptr;
     }
     mAudioTrack = -1;
+}
+
+void AudioEncoder::release() {
+    stop();
 
     if(m_sockfd>=0) {
         close(m_sockfd);

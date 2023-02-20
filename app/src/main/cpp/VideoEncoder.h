@@ -93,7 +93,7 @@ private:
     std::queue<AMediaInfo> mediaInfoQueue;
 
 private:
-    ANativeWindow* createEncoder();
+    ANativeWindow* createEncoder(AMediaMuxer *muxer);
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
     static void* encode_thread(void *arg);
 
@@ -121,8 +121,8 @@ public:
                         int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal,
                         const char *ip, int port);
     bool start();
-    ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec);
     void stop();
+    ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec, AMediaMuxer *muxer);
     void release();
 };
 
