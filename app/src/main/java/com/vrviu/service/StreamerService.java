@@ -147,8 +147,16 @@ public class StreamerService extends AccessibilityService {
             activityMonitor = null;
         }
 
-        if(controlTcpClient!=null)
+        if(controlTcpClient!=null) {
             controlTcpClient.interrupt();
+            try {
+                controlTcpClient.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            controlTcpClient = null;
+        }
+
         videoTcpServer.interrupt();
         displayManager.unregisterDisplayListener(displayListener);
         super.onDestroy();
@@ -277,7 +285,16 @@ public class StreamerService extends AccessibilityService {
                                       int defaulQP, int maxQP, int minQP, String fakeVideoPath) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
-            if(controlTcpClient!=null) controlTcpClient.interrupt();
+            if(controlTcpClient!=null) {
+                controlTcpClient.interrupt();
+                try {
+                    controlTcpClient.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                controlTcpClient = null;
+            }
+
             controlTcpClient = new ControlTcpClient(getApplicationContext(),lsIp,lsControlPort,isGameMode,downloadDir,packageName,activityMonitor,null);
             controlTcpClient.start();
             controlTcpClient.setDisplayRotation(screenSize);
@@ -347,8 +364,16 @@ public class StreamerService extends AccessibilityService {
 
         @Override
         public void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl) {
-            if(controlTcpClient!=null)
+            if(controlTcpClient!=null) {
                 controlTcpClient.interrupt();
+                try {
+                    controlTcpClient.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                controlTcpClient = null;
+            }
+
             mhandler.removeMessages(MSG_UPDATE_VIEW);
             releaseStreaming();
         }

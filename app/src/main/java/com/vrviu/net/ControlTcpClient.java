@@ -700,7 +700,7 @@ public final class ControlTcpClient extends TcpClient{
             sendInputModeChanged(inputModeManager.getInputMode());
 
             byte[] header = new byte[4];
-            while (true){
+            while (!isInterrupted()){
                 dataInputStream.readFully(header);
                 int type=((header[1]&0xFF)<<8)|(header[0]&0xFF);
                 int dataLen=((header[3]&0xFF)<<8)|(header[2]&0xFF);
