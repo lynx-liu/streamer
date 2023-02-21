@@ -308,6 +308,13 @@ public class StreamerService extends AccessibilityService {
             releaseStreaming();
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if(width<height) {
+                    width+=height;
+                    height=width-height;
+                    width-=height;
+                }
+                width = Math.max(screenSize.x,screenSize.y)*height/Math.min(screenSize.x,screenSize.y);
+
                 orientation = orientationType;
                 if(screenSize.x< screenSize.y && orientation%2!=0) {
                     videoWidth = Math.min(width, height);
@@ -399,6 +406,13 @@ public class StreamerService extends AccessibilityService {
                 if(width!=-1||height!=-1||(fps!=-1&&(eglRender==null||!eglRender.isDynamicFps()))||frameInterval!=-1||profile!=-1||codec!=-1||orientation!=-1) {
                     Log.d("llx","reconfigureEncode {"+(width!=-1?" width:"+width:"")+(height!=-1?" height:"+height:"")+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+(frameInterval!=-1?" frameInterval:"+frameInterval:"")+(profile!=-1?" profile:"+profile:"")+(orientation!=-1?" orientation:"+orientation:"")+(codec!=-1?" codec:"+codec:"")+" }");
                     if(width!=-1 && height!=-1) {
+                        if(width<height) {
+                            width+=height;
+                            height=width-height;
+                            width-=height;
+                        }
+                        width = Math.max(screenSize.x,screenSize.y)*height/Math.min(screenSize.x,screenSize.y);
+
                         if (screenSize.x < screenSize.y && orientation % 2 != 0) {
                             videoWidth = Math.min(width, height);
                             videoHeight = Math.max(width, height);
