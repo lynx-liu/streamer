@@ -175,8 +175,15 @@ public class StreamerService extends AccessibilityService {
 
         @Override
         public void onDisplayChanged(int displayId) {
+            Point lastSize = new Point(screenSize);
             Display display = displayManager.getDisplay(0);
             display.getRealSize(screenSize);
+
+            if(screenSize.equals(lastSize) && refreshRate==(int)display.getRefreshRate()) {
+                Log.d("llx", "display is same");
+                return;
+            }
+
             refreshRate = (int) display.getRefreshRate();
 
             if(captureHelper!=null) {
