@@ -66,5 +66,6 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
 
     public void Release() {
         mSurfaceTexture.setOnFrameAvailableListener(null);
+        eglWindow.Release();
     }
 }

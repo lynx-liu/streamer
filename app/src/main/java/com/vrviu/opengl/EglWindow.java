@@ -11,7 +11,9 @@ import android.view.Surface;
 
 public class EglWindow {
     private EGLDisplay mEGLDisplay = EGL14.EGL_NO_DISPLAY;
+    private EGLContext mEGLContextPb = EGL14.EGL_NO_CONTEXT;
     private EGLContext mEGLContext = EGL14.EGL_NO_CONTEXT;
+    private EGLSurface mEGLSurfacePb = EGL14.EGL_NO_SURFACE;
     private EGLSurface mEGLSurface = EGL14.EGL_NO_SURFACE;
 
     public EglWindow(Surface surface, int width, int height) {
@@ -29,11 +31,33 @@ public class EglWindow {
         Log.d("llx", "Initialized EGL v"+version[0]+"."+version[1]);
 
         int[] attrib_list = {EGL14.EGL_CONTEXT_CLIENT_VERSION, 2,EGL14.EGL_NONE};
-        EGLContext eglContext = eglCreatePbuffer(mEGLDisplay, attrib_list, width, height);
-        if(eglContext==EGL14.EGL_NO_CONTEXT) {
+        mEGLContextPb = eglCreatePbuffer(mEGLDisplay, attrib_list, width, height);
+        if(mEGLContextPb==EGL14.EGL_NO_CONTEXT) {
             return;
         }
-        eglCreateWindow(mEGLDisplay, attrib_list, eglContext, surface);
+        eglCreateWindow(mEGLDisplay, attrib_list, mEGLContextPb, surface);
+    }
+
+    public void Release() {
+        if(mEGLSurface!=null) {
+            EGL14.eglDestroySurface(mEGLDisplay, mEGLSurface);
+            mEGLSurface = EGL14.EGL_NO_SURFACE;
+        }
+
+        if(mEGLSurfacePb!=null) {
+            EGL14.eglDestroySurface(mEGLDisplay, mEGLSurfacePb);
+            mEGLSurfacePb = EGL14.EGL_NO_SURFACE;
+        }
+
+        if(mEGLContext!=null) {
+            EGL14.eglDestroyContext(mEGLDisplay, mEGLContext);
+            mEGLContext = EGL14.EGL_NO_CONTEXT;
+        }
+
+        if(mEGLContextPb!=null) {
+            EGL14.eglDestroyContext(mEGLDisplay, mEGLContextPb);
+            mEGLContextPb = EGL14.EGL_NO_CONTEXT;
+        }
     }
 
     public void makeCurrent() {
@@ -98,14 +122,14 @@ public class EglWindow {
         }
 
         int[] surfaceAttribs = {EGL14.EGL_WIDTH, width, EGL14.EGL_HEIGHT, height, EGL14.EGL_NONE};
-        EGLSurface eglSurface = EGL14.eglCreatePbufferSurface(eglDisplay, config, surfaceAttribs, 0);
+        mEGLSurfacePb = EGL14.eglCreatePbufferSurface(eglDisplay, config, surfaceAttribs, 0);
         checkEglError("eglCreatePbufferSurface");
-        if (eglSurface == EGL14.EGL_NO_SURFACE) {
+        if (mEGLSurfacePb == EGL14.EGL_NO_SURFACE) {
             Log.e("llx", "EGL_NO_SURFACE");
             return EGL14.EGL_NO_CONTEXT;
         }
 
-        if (!EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
+        if (!EGL14.eglMakeCurrent(eglDisplay, mEGLSurfacePb, mEGLSurfacePb, eglContext)) {
             Log.e("llx", "eglMakeCurrent failed");
             return EGL14.EGL_NO_CONTEXT;
         }

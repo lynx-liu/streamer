@@ -221,6 +221,8 @@ public class StreamerService extends AccessibilityService {
                     if (eglRender != null) {
                         int fps = eglRender.getFps();
                         float sharp = eglRender.getSharp();
+                        eglRender.Release();
+
                         eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
                         surface = eglRender.getSurface();
                     }
@@ -345,6 +347,11 @@ public class StreamerService extends AccessibilityService {
                         idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, lsIp, lsVideoPort, lsAudioPort,
                         null);
 
+                if(eglRender != null) {
+                    eglRender.Release();
+                    eglRender = null;
+                }
+
                 if(sharp>0 || dynamicFps) {
                     eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, maxFps, mhandler);
                     surface = eglRender.getSurface();
@@ -436,6 +443,8 @@ public class StreamerService extends AccessibilityService {
                     if(eglRender!=null) {
                         if(fps==-1) fps = eglRender.getFps();
                         float sharp = eglRender.getSharp();
+                        eglRender.Release();
+
                         eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
                         surface = eglRender.getSurface();
                     }
