@@ -3,7 +3,6 @@ package com.vrviu.service;
 import android.accessibilityservice.AccessibilityService;
 import android.content.ComponentName;
 import android.content.Context;
-import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
@@ -11,12 +10,9 @@ import android.media.MediaCodecInfo;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.Message;
 import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
-import android.view.View;
-import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 
 import com.vrviu.manager.ActivityMonitor;
@@ -34,14 +30,7 @@ import java.io.IOException;
 
 public class StreamerService extends AccessibilityService {
     private static final int NOT_IN_GAME = 9998;
-    private static final int MSG_UPDATE_VIEW = 0x01;
-    private static final int MAX_DELAY = 500;
-    private static int delayMillis = MAX_DELAY;
-
     private ControlTcpClient controlTcpClient = null;
-
-    private static int color = 0;
-    private View floatView = null;
 
     private static int orientation = 1;
     private static int videoWidth = 1920;
@@ -54,6 +43,7 @@ public class StreamerService extends AccessibilityService {
     private final MediaEncoder mediaEncoder = new MediaEncoder();
     private MediaPlayer mMediaPlayer = null;
 
+    private Handler mhandler = null;
     private ActivityMonitor activityMonitor = null;
     private CaptureHelper captureHelper = null;
     private GameHelper gameHelper = null;
@@ -70,12 +60,11 @@ public class StreamerService extends AccessibilityService {
         displayManager.registerDisplayListener(displayListener,null);
         Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation()+", refreshRate:"+refreshRate);
 
+        mhandler = new Handler();
         activityMonitor = new ActivityMonitor(getApplicationContext(), mhandler);
         activityMonitor.addActivityChangeListener(activityChangeListener);
         captureHelper = new CaptureHelper(screenSize);
-
         videoTcpServer.start();
-        createFloatWindow();
     }
 
     ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
@@ -245,31 +234,6 @@ public class StreamerService extends AccessibilityService {
         }
     };
 
-    private final Handler mhandler = new Handler(){
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            switch (msg.what){
-                case MSG_UPDATE_VIEW:
-                    floatView.setBackgroundColor(color++);
-                    mhandler.sendEmptyMessageDelayed(MSG_UPDATE_VIEW,delayMillis);
-                    break;
-            }
-        }
-    };
-
-    private void createFloatWindow() {
-        WindowManager windowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-        WindowManager.LayoutParams layoutParams = new WindowManager.LayoutParams();
-        layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
-        layoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
-        layoutParams.format = PixelFormat.RGBA_8888;
-        layoutParams.width = 1; layoutParams.height = 1;
-
-        floatView = new View(getApplicationContext());
-        windowManager.addView(floatView,layoutParams);
-    }
-
     private int getProfile(String profile) {
         int ret = MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline;
         switch (profile) {
@@ -374,12 +338,6 @@ public class StreamerService extends AccessibilityService {
                     }
                 }
                 surface.release();
-
-                mhandler.removeMessages(MSG_UPDATE_VIEW);
-                if(minFps>0) delayMillis = 1000/minFps;
-                if(delayMillis>MAX_DELAY) delayMillis = MAX_DELAY;
-                else if(delayMillis<1000/maxFps) delayMillis = 1000/maxFps+1;
-                mhandler.sendEmptyMessageDelayed(MSG_UPDATE_VIEW,delayMillis);
                 return mediaEncoder.start();
             }
             return true;
@@ -396,8 +354,6 @@ public class StreamerService extends AccessibilityService {
                 }
                 controlTcpClient = null;
             }
-
-            mhandler.removeMessages(MSG_UPDATE_VIEW);
             releaseStreaming();
         }
 

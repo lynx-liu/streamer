@@ -112,7 +112,7 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,videoParam.bitrate);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, videoParam.maxFps);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, videoParam.frameInterval);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_FRAME_DELAY_US); // µs
+    AMediaFormat_setInt64(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1.5*(timeoutUs+1)); // µs
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, COLOR_FormatSurface);
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, videoParam.maxFps);
     AMediaFormat_setInt32(videoFormat, KEY_MAX_B_FRAMES, 0);
