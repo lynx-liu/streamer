@@ -39,24 +39,30 @@ public class EglWindow {
     }
 
     public void Release() {
-        if(mEGLSurface!=null) {
-            EGL14.eglDestroySurface(mEGLDisplay, mEGLSurface);
-            mEGLSurface = EGL14.EGL_NO_SURFACE;
-        }
+        if(mEGLDisplay!=null) {
+            if (mEGLSurface != null) {
+                EGL14.eglDestroySurface(mEGLDisplay, mEGLSurface);
+                mEGLSurface = EGL14.EGL_NO_SURFACE;
+            }
 
-        if(mEGLSurfacePb!=null) {
-            EGL14.eglDestroySurface(mEGLDisplay, mEGLSurfacePb);
-            mEGLSurfacePb = EGL14.EGL_NO_SURFACE;
-        }
+            if (mEGLSurfacePb != null) {
+                EGL14.eglDestroySurface(mEGLDisplay, mEGLSurfacePb);
+                mEGLSurfacePb = EGL14.EGL_NO_SURFACE;
+            }
 
-        if(mEGLContext!=null) {
-            EGL14.eglDestroyContext(mEGLDisplay, mEGLContext);
-            mEGLContext = EGL14.EGL_NO_CONTEXT;
-        }
+            if (mEGLContext != null) {
+                EGL14.eglDestroyContext(mEGLDisplay, mEGLContext);
+                mEGLContext = EGL14.EGL_NO_CONTEXT;
+            }
 
-        if(mEGLContextPb!=null) {
-            EGL14.eglDestroyContext(mEGLDisplay, mEGLContextPb);
-            mEGLContextPb = EGL14.EGL_NO_CONTEXT;
+            if (mEGLContextPb != null) {
+                EGL14.eglDestroyContext(mEGLDisplay, mEGLContextPb);
+                mEGLContextPb = EGL14.EGL_NO_CONTEXT;
+            }
+
+            EGL14.eglReleaseThread();
+            EGL14.eglTerminate(mEGLDisplay);
+            mEGLDisplay = EGL14.EGL_NO_DISPLAY;
         }
     }
 

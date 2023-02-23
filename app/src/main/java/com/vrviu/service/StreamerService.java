@@ -70,13 +70,12 @@ public class StreamerService extends AccessibilityService {
         displayManager.registerDisplayListener(displayListener,null);
         Log.d("llx","width:"+screenSize.x+", height:"+screenSize.y+", orientation:"+display.getRotation()+", refreshRate:"+refreshRate);
 
-        videoTcpServer.start();
-        createFloatWindow();
-
         activityMonitor = new ActivityMonitor(getApplicationContext(), mhandler);
         activityMonitor.addActivityChangeListener(activityChangeListener);
-
         captureHelper = new CaptureHelper(screenSize);
+
+        videoTcpServer.start();
+        createFloatWindow();
     }
 
     ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
@@ -216,6 +215,7 @@ public class StreamerService extends AccessibilityService {
                         videoHeight = Math.min(width, height);
                     }
 
+                    if(eglRender!=null) eglRender.stop();
                     Surface surface = mediaEncoder.reconfigure(videoWidth, videoHeight, -1, -1, -1, -1, -1);
 
                     if (eglRender != null) {
@@ -343,6 +343,8 @@ public class StreamerService extends AccessibilityService {
 
                 int profile = getProfile(videoCodecProfile);
                 int framerate = dynamicFps?refreshRate:maxFps;
+                if(eglRender!=null) eglRender.stop();
+
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, codec, profile,
                         idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, lsIp, lsVideoPort, lsAudioPort,
                         null);
@@ -437,14 +439,22 @@ public class StreamerService extends AccessibilityService {
                     videoWidth &= 0xFFFC;
                     videoHeight &= 0xFFFC;
 
-                    int maxFps = (fps!=-1 && eglRender!=null && eglRender.isDynamicFps())? refreshRate:fps;
+                    int maxFps = fps;
+                    if(eglRender!=null) {
+                        if(fps==-1) {
+                            fps = eglRender.getFps();
+                        } else if(eglRender.isDynamicFps()) {
+                            maxFps = refreshRate;
+                        }
+                        eglRender.stop();
+                    }
+
+                    if(bitrate!=-1) bitrate*=1000;
                     Surface surface = mediaEncoder.reconfigure(videoWidth,videoHeight,bitrate,maxFps,frameInterval,profile,codec);
 
                     if(eglRender!=null) {
-                        if(fps==-1) fps = eglRender.getFps();
                         float sharp = eglRender.getSharp();
                         eglRender.Release();
-
                         eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
                         surface = eglRender.getSurface();
                     }

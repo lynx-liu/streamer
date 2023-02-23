@@ -18,6 +18,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         fps = maxFps;
         if(maxFps>0) mIntervalTime = (long) (1000/maxFps*radio);
         eglWindow = new EglWindow(surface, width, height);
+        surface.release();
 
         mTextureRender = new TextureRender(width, height, sharp);
         mSurfaceTexture = new SurfaceTexture(mTextureRender.getTextureId());
@@ -64,8 +65,11 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         }
     }
 
-    public void Release() {
+    public void stop() {
         mSurfaceTexture.setOnFrameAvailableListener(null);
+    }
+
+    public void Release() {
         eglWindow.Release();
     }
 }
