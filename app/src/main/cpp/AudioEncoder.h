@@ -8,6 +8,7 @@
 #include <malloc.h>
 #include <memory.h>
 #include <pthread.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/resource.h>
@@ -69,8 +70,8 @@ public:
     bool createEncoder(AMediaMuxer *muxer);
     bool init(JNIEnv *env, int mimeType, AMediaMuxer *muxer, int8_t *tracktotal, const char *ip, int port);
     bool start();
-    void stop();
-    void release();
+    bool stop();
+    bool release();
 };
 
 #endif //STREAMER_AUDIOENCODER_H

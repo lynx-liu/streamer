@@ -11,6 +11,7 @@
 #define NDK_DEBUG   0
 #define CALL_BACK   1
 
+#define NAME(variable) (#variable)
 #define COLOR_FormatSurface                 0x7F000789
 #define REPEAT_FRAME_DELAY_US               50000 // repeat after 50ms
 
@@ -46,6 +47,7 @@ VideoEncoder::~VideoEncoder()
 }
 
 void VideoEncoder::requestSyncFrame() {
+    if(videoCodec== nullptr) return;
     AMediaFormat *videoFormat = AMediaFormat_new();
     AMediaFormat_setInt32(videoFormat, PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
     AMediaCodec_setParameters(videoCodec,videoFormat);
@@ -53,6 +55,7 @@ void VideoEncoder::requestSyncFrame() {
 }
 
 void VideoEncoder::setVideoBitrate(int bitrate) {
+    if(videoCodec== nullptr) return;
     AMediaFormat *videoFormat = AMediaFormat_new();
     AMediaFormat_setInt32(videoFormat, PARAMETER_KEY_VIDEO_BITRATE, bitrate);
     AMediaCodec_setParameters(videoCodec,videoFormat);
@@ -70,7 +73,7 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     }
 
     mIsSending = true;
-    if(pthread_create(&send_tid, nullptr, send_thread, this)!=0) {
+    if(pthread_create(&send_tid, nullptr, send_video_thread, this)!=0) {
         LOGE("video send_thread failed!");
         release();
         return nullptr;
@@ -118,7 +121,7 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(videoFormat, KEY_MAX_B_FRAMES, 0);
     AMediaFormat_setInt32(videoFormat, KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 1);
 
-    if(videoParam.defaulQP!=0 || videoParam.minQP!=0 && videoParam.maxQP!=0) {
+    if(videoParam.defaulQP!=0 || videoParam.minQP!=0 || videoParam.maxQP!=0) {
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i", videoParam.defaulQP);
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i-enable", 1);
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-min", videoParam.minQP);
@@ -144,6 +147,12 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_LEVEL, 0x200);
 
     videoCodec = AMediaCodec_createEncoderByType(VIDEO_MIME);
+    if(videoCodec== nullptr) {
+        LOGE("video createEncoderByType failed");
+        release();
+        return nullptr;
+    }
+
     media_status_t videoConfigureStatus = AMediaCodec_configure(videoCodec,
                                                                 videoFormat, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
     AMediaFormat_delete(videoFormat);
@@ -240,9 +249,6 @@ inline void VideoEncoder::notifyOutputAvailable(int32_t index, AMediaCodecBuffer
     cond.notify_all();
 }
 
-long count = 0;
-long sum = 0;
-
 inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info) {
     if(!mIsRecording) return;
 
@@ -297,7 +303,7 @@ inline void VideoEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
         }
 
         if(info->flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
-            LOGI("AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
+            LOGI("video AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
             break;
         }
     } while (mIsRecording);
@@ -307,6 +313,7 @@ void* VideoEncoder::encode_thread(void *arg) {
     auto *videoEncoder =(VideoEncoder *)arg;
     auto *info = (AMediaCodecBufferInfo *) malloc(sizeof(AMediaCodecBufferInfo));
 
+    prctl(PR_SET_NAME,NAME(videoEncoder));
     setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
     setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
 
@@ -318,8 +325,10 @@ void* VideoEncoder::encode_thread(void *arg) {
     return nullptr;
 }
 
-void* VideoEncoder::send_thread(void *arg) {
+void* VideoEncoder::send_video_thread(void *arg) {
     auto *videoEncoder =(VideoEncoder *)arg;
+
+    prctl(PR_SET_NAME,__func__);
     setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
     setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
 
@@ -371,9 +380,9 @@ int VideoEncoder::connectSocket(const char *ip, int port) {
     return fd;
 }
 
-void VideoEncoder::stop() {
+bool VideoEncoder::stop() {
     if(!mIsRecording)
-        return;
+        return false;
     mIsRecording = false;
 
 #if CALL_BACK
@@ -388,6 +397,7 @@ void VideoEncoder::stop() {
 #endif
 
     if (videoCodec) {
+        AMediaCodec_signalEndOfInputStream(videoCodec);
         AMediaCodec_stop(videoCodec);
         AMediaCodec_delete(videoCodec);
         videoCodec = nullptr;
@@ -404,10 +414,12 @@ void VideoEncoder::stop() {
     }
     mVideoTrack = -1;
     LOGI("video stop!!!");
+    return true;
 }
 
-void VideoEncoder::release() {
-    stop();
+bool VideoEncoder::release() {
+    if(!stop())
+        return false;
 
     mIsSending = false;
     cond.notify_all();
@@ -426,4 +438,5 @@ void VideoEncoder::release() {
         m_sockfd = -1;
     }
     LOGI("video release!!!");
+    return true;
 }

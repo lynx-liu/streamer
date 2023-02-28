@@ -13,10 +13,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.Socket;
-import java.util.Timer;
-import java.util.TimerTask;
 
-public abstract class VideoTcpServer extends TcpServer {
+public class VideoTcpServer extends TcpServer {
     private static final int startStreaming = 0x01;
     private static final int stopStreaming = 0x02;
     private static final int requestIdrFrame = 0x03;
@@ -31,49 +29,45 @@ public abstract class VideoTcpServer extends TcpServer {
     private static final byte ERROR = (byte) 0xFF;//版本错误
     private static final int AVC = 0;
     private static final int HEVC = 1;
-    private static final int HEARTBEAT_TIME = 10_000;
-    private static final byte[] heartbeat = new byte[]{0x00,0x00,0x00,0x08,VERSION,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
     private static int nSeqnum = 0;
     private static DataOutputStream dataOutputStream = null;
     private static SurfaceFlingerHelper surfaceFlingerHelper = null;
 
-    public abstract boolean startStreaming(String flowId,  String lsIp, boolean tcp,
-                                           int lsVideoPort, int lsAudioPort, int lsControlPort,
-                                           int codec, String videoCodecProfile, int idrPeriod,
-                                           int maxFps, int minFps, boolean dynamicFps, int width, int height,
-                                           int bitrate, int orientationType, int enableSEI,
-                                           int rateControlMode, int gameMode,
-                                           String packageName, String downloadDir,
-                                           float sharp, int audioType,
-                                           int defaulQP, int maxQP, int minQP,
-                                           String fakeVideoPath);
-    public abstract void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl);
-    public abstract void requestIdrFrame();
-    public abstract boolean reconfigureEncode(int width,int height,int bitrate,int fps,int frameInterval,int profile,int orientation,int codec);
+    public interface Callback {
+        boolean startStreaming(String flowId, String lsIp, boolean tcp,
+                                               int lsVideoPort, int lsAudioPort, int lsControlPort,
+                                               int codec, String videoCodecProfile, int idrPeriod,
+                                               int maxFps, int minFps, boolean dynamicFps, int width, int height,
+                                               int bitrate, int orientationType, int enableSEI,
+                                               int rateControlMode, int gameMode,
+                                               String packageName, String downloadDir,
+                                               float sharp, int audioType,
+                                               int defaulQP, int maxQP, int minQP,
+                                               String fakeVideoPath);
 
-    private final Timer timer = new Timer();
+        void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl);
+        void requestIdrFrame();
+        boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec);
+    }
 
-    public VideoTcpServer(int port){
+    private final Callback mCallback;
+    public VideoTcpServer(Callback callback, int port){
         super(port);
-        TimerTask timerTask = new TimerTask() {
-            @Override
-            public void run() {
-                if (dataOutputStream != null) {
-                    try {
-                        dataOutputStream.write(heartbeat);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        };
-        timer.schedule(timerTask,HEARTBEAT_TIME,HEARTBEAT_TIME);
+        setName(getClass().getSimpleName());
+        mCallback = callback;
     }
 
     @Override
     public void interrupt() {
-        timer.cancel();
+        if(dataOutputStream!=null) {
+            try {
+                dataOutputStream.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            dataOutputStream = null;
+        }
         super.interrupt();
     }
 
@@ -125,7 +119,7 @@ public abstract class VideoTcpServer extends TcpServer {
                 });
             }
 
-            return startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
+            return mCallback.startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
                     codec,videoCodecProfile,idrPeriod,maxFps,minFps,dynamicFps,width,height,bitrate,orientationType,
                     enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType,defaulQP,maxQP,minQP,
                     fakeVideoPath);
@@ -148,7 +142,7 @@ public abstract class VideoTcpServer extends TcpServer {
             int audio = JsonUtils.get(jsonObject, "audio", -1);//51897
             int control = JsonUtils.get(jsonObject, "control", -1);//5000
             //==0说明不希望停止对应流
-            stopStreaming(video!=0,audio!=0,control!=0);
+            mCallback.stopStreaming(video!=0,audio!=0,control!=0);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -166,7 +160,7 @@ public abstract class VideoTcpServer extends TcpServer {
         int codec = data[11];
         int frameInterval = ((data[12]&0xFF)<<24)|((data[13]&0xFF)<<16)|((data[14]&0xFF)<<8)|(data[15]&0xFF);
 
-        return reconfigureEncode(width,height,bitrate,fps,frameInterval,profile,orientation,codec);
+        return mCallback.reconfigureEncode(width,height,bitrate,fps,frameInterval,profile,orientation,codec);
     }
 
     private void response(final byte type, final int seqnum, final byte result) {
@@ -238,7 +232,7 @@ public abstract class VideoTcpServer extends TcpServer {
             dataOutputStream = new DataOutputStream(client.getOutputStream());
 
             byte[] header = new byte[12];
-            while (!isInterrupted()){
+            while (dataOutputStream!=null){
                 dataInputStream.readFully(header);
 
                 int dataLen = (((header[0]&0xFF)<<24)|((header[1]&0xFF)<<16)|((header[2]&0xFF)<<8)|(header[3]&0xFF))-8;
@@ -266,7 +260,7 @@ public abstract class VideoTcpServer extends TcpServer {
                             break;
 
                             case requestIdrFrame:
-                                requestIdrFrame();
+                                mCallback.requestIdrFrame();
                                 break;
 
                             case reconfigureEncode:
@@ -295,7 +289,7 @@ public abstract class VideoTcpServer extends TcpServer {
                 e.printStackTrace();
             }
             dataOutputStream = null;
-            stopStreaming(true,true,true);
+            mCallback.stopStreaming(true,true,true);
         }
     }
 }

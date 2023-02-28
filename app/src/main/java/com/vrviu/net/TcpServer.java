@@ -20,7 +20,7 @@ public abstract class TcpServer extends Thread{
         Looper.prepare();
         try {
             serverSocket = new ServerSocket(port);
-            while (!isInterrupted()) {
+            while (!serverSocket.isClosed()) {
                 Socket client = serverSocket.accept();
                 onAccept(client);
                 try{
@@ -38,8 +38,17 @@ public abstract class TcpServer extends Thread{
                 Log.d("llx",e.toString());
             }
         }
-        Log.d("llx","TcpServer exit");
         Looper.loop();
+    }
+
+    @Override
+    public void interrupt() {
+        super.interrupt();
+        try {
+            serverSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public abstract void onAccept(Socket client);

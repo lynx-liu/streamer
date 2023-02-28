@@ -135,6 +135,8 @@ public final class ControlTcpClient extends TcpClient{
 
     public ControlTcpClient(final Context context, final String ip, final int port, final boolean isGameMode, final String downloadDir, final String packageName, ActivityMonitor activityMonitor, AtomicLong controlTs) {
         super(ip,port);
+        setName(getClass().getSimpleName());
+
         this.isGameMode = isGameMode;
         this.controlTs=controlTs;
 

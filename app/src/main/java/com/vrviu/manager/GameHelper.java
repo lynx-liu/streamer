@@ -28,6 +28,8 @@ public class GameHelper extends Thread{
     }
 
     public GameHelper(CaptureHelper captureHelper, String packageName, onSceneChangeListener listener) {
+        setName(getClass().getSimpleName());
+
         mListener = listener;
         this.packageName = packageName;
         if(loadConfig("/data/local/tmp/GameHelper/GameHelper.json", packageName)) {

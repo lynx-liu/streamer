@@ -8,12 +8,18 @@
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
-#define dump_audio 0
+#define NDK_DEBUG   0
+#define dump_audio  0
+#define NAME(variable) (#variable)
 
 inline int64_t systemnanotime() {
     timespec now{};
     clock_gettime(CLOCK_MONOTONIC, &now);
     return now.tv_sec * 1000000000LL + now.tv_nsec;
+}
+
+inline int32_t systemmilltime() {
+    return systemnanotime()/1000000;
 }
 
 AudioEncoder::AudioEncoder()
@@ -71,6 +77,12 @@ bool AudioEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(audioFormat, AMEDIAFORMAT_KEY_MAX_INPUT_SIZE, BUF_SIZE);
 
     audioCodec = AMediaCodec_createEncoderByType(AUDIO_MIME);
+    if(audioCodec== nullptr) {
+        LOGE("audio createEncoderByType failed");
+        release();
+        return false;
+    }
+
     media_status_t audioConfigureStatus = AMediaCodec_configure(audioCodec,
                                                                 audioFormat, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
     AMediaFormat_delete(audioFormat);
@@ -115,7 +127,6 @@ bool AudioEncoder::start() {
 
 void* AudioEncoder::getpcm_thread(void *arg) {
     auto *audioEncoder =(AudioEncoder *)arg;
-
     JNIEnv *jniEnv = nullptr;
     audioEncoder->jvm->AttachCurrentThread(&jniEnv, nullptr);
 
@@ -129,6 +140,7 @@ void* AudioEncoder::getpcm_thread(void *arg) {
 
     jmethodID startRecording = jniEnv->GetMethodID(audioRecordClass, "startRecording","()V");
     jniEnv->CallVoidMethod(audioRecord, startRecording);//start recording
+
     jmethodID read = jniEnv->GetMethodID(audioRecordClass, "read", "([BII)I");
 
     int blockSize = BUF_SIZE;
@@ -136,6 +148,7 @@ void* AudioEncoder::getpcm_thread(void *arg) {
 #if dump_audio
     FILE* fp = fopen("/sdcard/test.pcm","ab");
 #endif
+    prctl(PR_SET_NAME,__func__);
     while(audioEncoder->mIsRecording) {
         int nSize = jniEnv->CallIntMethod(audioRecord,read, jPcmBuffer, 0, blockSize);
         if(nSize<=0){
@@ -155,6 +168,13 @@ void* AudioEncoder::getpcm_thread(void *arg) {
     fclose(fp);
 #endif
     jniEnv->DeleteLocalRef(jPcmBuffer);
+
+    jmethodID stop = jniEnv->GetMethodID(audioRecordClass, "stop","()V");
+    jniEnv->CallVoidMethod(audioRecord, stop);//stop recording
+
+    jmethodID release = jniEnv->GetMethodID(audioRecordClass, "release","()V");
+    jniEnv->CallVoidMethod(audioRecord, release);//release recording
+
     audioEncoder->jvm->DetachCurrentThread();
     LOGI("audio getpcm_thread exit");
     return nullptr;
@@ -169,7 +189,10 @@ inline void AudioEncoder::onPcmData(uint8_t *bytes, uint32_t size) const {
             if(out_size>0) {
                 memcpy(inputBuffer, bytes, size);
                 long pts = systemnanotime() / 1000;
-                AMediaCodec_queueInputBuffer(audioCodec, inBufferIndex, 0, size, pts, 0);
+                media_status_t audioQueueInputBufferStatus = AMediaCodec_queueInputBuffer(audioCodec, inBufferIndex, 0, size, pts, 0);
+                if(AMEDIA_OK != audioQueueInputBufferStatus) {
+                    LOGE("audio queueInputBuffer failed status-->%d", audioQueueInputBufferStatus);
+                }
             }
         }
     } else {
@@ -181,6 +204,7 @@ void* AudioEncoder::encode_thread(void *arg) {
     auto *audioEncoder =(AudioEncoder *)arg;
     auto *info = (AMediaCodecBufferInfo *) malloc(sizeof(AMediaCodecBufferInfo));
 
+    prctl(PR_SET_NAME,NAME(audioEncoder));
     setpriority(PRIO_PROCESS, getpid(), PRIO_MIN);
     setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
 
@@ -209,7 +233,7 @@ inline void AudioEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
 #if NDK_DEBUG
         int32_t start = systemmilltime();
 #endif
-        outIndex = AMediaCodec_dequeueOutputBuffer(audioCodec, info, 1000);
+        outIndex = AMediaCodec_dequeueOutputBuffer(audioCodec, info, 1000000L);
 #if NDK_DEBUG
         LOGI("AMediaCodec_dequeueOutputBuffer: %zd, %d, %d ms\r\n", outIndex, info->offset, systemmilltime() - start);
 #endif
@@ -244,7 +268,7 @@ inline void AudioEncoder::dequeueOutput(AMediaCodecBufferInfo *info) {
         }
 
         if(info->flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
-            LOGI("AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
+            LOGI("audio AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM");
             break;
         }
     } while (mIsRecording);
@@ -275,9 +299,9 @@ int AudioEncoder::connectSocket(const char *ip, int port) {
     return fd;
 }
 
-void AudioEncoder::stop() {
+bool AudioEncoder::stop() {
     if(!mIsRecording)
-        return;
+        return false;
 
     mIsRecording = false;
     if(getpcm_tid!=0) {
@@ -293,6 +317,7 @@ void AudioEncoder::stop() {
     }
 
     if (audioCodec) {
+        AMediaCodec_signalEndOfInputStream(audioCodec);
         AMediaCodec_stop(audioCodec);
         AMediaCodec_delete(audioCodec);
         audioCodec = nullptr;
@@ -303,14 +328,18 @@ void AudioEncoder::stop() {
         mMuxer = nullptr;
     }
     mAudioTrack = -1;
+    LOGI("audio stop!!!");
+    return true;
 }
 
-void AudioEncoder::release() {
-    stop();
+bool AudioEncoder::release() {
+    if(!stop())
+        return false;
 
     if(m_sockfd>=0) {
         close(m_sockfd);
         m_sockfd = -1;
     }
     LOGI("audio release!!!");
+    return true;
 }

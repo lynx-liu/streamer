@@ -7,6 +7,7 @@
 
 #include <queue>
 #include <pthread.h>
+#include <sys/prctl.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
@@ -94,7 +95,7 @@ private:
     inline void onEncodeFrame(uint8_t *bytes,size_t size,int32_t flags,int64_t ts);
 
     static int connectSocket(const char *ip, int port);
-    static void* send_thread(void *arg);
+    static void* send_video_thread(void *arg);
 
 public:
     VideoEncoder();
@@ -105,9 +106,9 @@ public:
                         int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal,
                         const char *ip, int port);
     bool start();
-    void stop();
+    bool stop();
     ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec, AMediaMuxer *muxer);
-    void release();
+    bool release();
 };
 
 #endif //STREAMER_VIDEOENCODER_H

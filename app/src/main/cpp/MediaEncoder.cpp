@@ -13,6 +13,7 @@ extern "C" {
 #endif
 
 int fd = 0;
+pthread_mutex_t mutex;
 uint8_t trackTotal = 0;
 AMediaMuxer *mMuxer = NULL;
 AudioEncoder *audioEncoder = new AudioEncoder();
@@ -23,6 +24,7 @@ void _init(void) {
 
 jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期，加载jni的时候会自己调用
 {
+    pthread_mutex_init(&mutex, NULL);
     return JNI_VERSION_1_6;
 }
 
@@ -31,6 +33,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
                                                                     int frameInterval, int bitrateMode, int audioMimeType,
                                                                     int defaulQP, int maxQP, int minQP,
                                                                     jstring _ip, jint videoPort, jint audioPort, jstring fileName) {
+    pthread_mutex_lock(&mutex);
     if(fileName!= nullptr) {
         const char* filename = env->GetStringUTFChars(fileName, NULL);
 
@@ -52,15 +55,17 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
                                                      defaulQP, maxQP, minQP, mMuxer, reinterpret_cast<int8_t *>(&trackTotal),
                                                      ip, videoPort);
     env->ReleaseStringUTFChars(_ip, ip);
-
     if(mMuxer!= nullptr) {
         LOGI("trackTotal: %d", trackTotal);
     }
+
+    pthread_mutex_unlock(&mutex);
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 
 JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEnv *env, jobject thiz, int width, int height,
                                                                            int bitrate, int fps, int frameInterval, int profile, int codec) {
+    pthread_mutex_lock(&mutex);
     videoEncoder->stop();
 
     if (mMuxer) {
@@ -80,14 +85,19 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEn
     }
 
     ANativeWindow *nativeWindow = videoEncoder->reconfigure(width, height, bitrate, fps, frameInterval, profile, codec, mMuxer);
+    pthread_mutex_unlock(&mutex);
     return ANativeWindow_toSurface(env,nativeWindow);
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz) {
-    return videoEncoder->start() && audioEncoder->start();
+    pthread_mutex_lock(&mutex);
+    bool bRet = videoEncoder->start() && audioEncoder->start();
+    pthread_mutex_unlock(&mutex);
+    return bRet;
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_release(JNIEnv *env, jobject thiz) {
+    pthread_mutex_lock(&mutex);
     audioEncoder->release();
     videoEncoder->release();
 
@@ -102,15 +112,20 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_release(JNIEnv *
         close(fd);
         fd = 0;
     }
+    pthread_mutex_unlock(&mutex);
     return true;
 }
 
 JNIEXPORT void JNICALL Java_com_vrviu_streamer_MediaEncoder_requestSyncFrame(JNIEnv *env, jobject thiz) {
+    pthread_mutex_lock(&mutex);
     videoEncoder->requestSyncFrame();
+    pthread_mutex_unlock(&mutex);
 }
 
 JNIEXPORT void JNICALL Java_com_vrviu_streamer_MediaEncoder_setVideoBitrate(JNIEnv *env, jobject thiz, jint bitrate) {
+    pthread_mutex_lock(&mutex);
     videoEncoder->setVideoBitrate(bitrate);
+    pthread_mutex_unlock(&mutex);
 }
 
 #ifdef __cplusplus

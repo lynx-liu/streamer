@@ -16,6 +16,7 @@ public class SurfaceFlingerHelper extends Thread{
     }
 
     public SurfaceFlingerHelper(String viewName, onFpsListener listener) {
+        setName(getClass().getSimpleName());
         latencyCmd = "dumpsys SurfaceFlinger --latency \"" + viewName + "\"";
         Log.d("llx", latencyCmd);
         mListener = listener;
