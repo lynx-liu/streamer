@@ -237,7 +237,7 @@ void VideoEncoder::OnErrorCB(AMediaCodec *mediaCodec, void *userdata, media_stat
 }
 
 inline void VideoEncoder::notifyOutputAvailable(int32_t index, AMediaCodecBufferInfo *bufferInfo) {
-    AMediaInfo mediaInfo;
+    VideoInfo mediaInfo;
     memset(&mediaInfo,0,sizeof(mediaInfo));
 
     mediaInfo.outIndex = index;
@@ -246,7 +246,7 @@ inline void VideoEncoder::notifyOutputAvailable(int32_t index, AMediaCodecBuffer
 #if NDK_DEBUG
     LOGI("notify_all");
 #endif
-    cond.notify_all();
+    condOut.notify_all();
 }
 
 inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info) {
@@ -333,10 +333,10 @@ void* VideoEncoder::send_video_thread(void *arg) {
     setpriority(PRIO_PROCESS, gettid(), PRIO_MIN);
 
     while(videoEncoder->mIsSending) {
-        std::unique_lock<std::mutex> lock_u(videoEncoder->mtx);
-        videoEncoder->cond.wait(lock_u);
+        std::unique_lock<std::mutex> lock_u(videoEncoder->mtxOut);
+        videoEncoder->condOut.wait(lock_u);
         while(!videoEncoder->mediaInfoQueue.empty()) {
-            AMediaInfo mediaInfo = videoEncoder->mediaInfoQueue.front();
+            VideoInfo mediaInfo = videoEncoder->mediaInfoQueue.front();
             videoEncoder->onOutputAvailable(mediaInfo.outIndex, &mediaInfo.bufferInfo);
             videoEncoder->mediaInfoQueue.pop();
         }
@@ -422,7 +422,7 @@ bool VideoEncoder::release() {
         return false;
 
     mIsSending = false;
-    cond.notify_all();
+    condOut.notify_all();
     if(send_tid!=0) {
         LOGI("video send pthread_join!!!");
         pthread_join(send_tid, nullptr);

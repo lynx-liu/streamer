@@ -5,6 +5,7 @@
 #ifndef STREAMER_AUDIOENCODER_H
 #define STREAMER_AUDIOENCODER_H
 
+#include <queue>
 #include <malloc.h>
 #include <memory.h>
 #include <pthread.h>
@@ -18,6 +19,7 @@
 #include <media/NdkMediaMuxer.h>
 #include <media/NdkMediaCodec.h>
 #include <media/NdkMediaFormat.h>
+#include <mutex>
 
 #define CHANNEL_IN_STEREO       0xC //双声道 (CHANNEL_IN_LEFT | CHANNEL_IN_RIGHT)
 #define CHANNEL_COUNT           2
@@ -41,6 +43,11 @@ struct AudioHeader {
 };
 #pragma pack(pop)
 
+typedef struct AudioInfo {
+    int32_t outIndex;
+    AMediaCodecBufferInfo bufferInfo;
+} AudioInfo;
+
 class AudioEncoder
 {
 private:
@@ -53,16 +60,36 @@ private:
     AMediaMuxer *mMuxer = NULL;
     int mAudioTrack;
     bool mIsRecording;
+    bool mIsSending;
     int8_t *trackTotal;
     int8_t audioType;
+
+    pthread_t send_tid = 0;
+    std::mutex mtxOut;
+    std::condition_variable condOut;
+    std::queue<AudioInfo> mediaInfoQueue;
+
+    std::mutex mtxIn;
+    std::condition_variable condIn;
+    std::queue<int32_t> indexQueue;
 
 private:
     inline void dequeueOutput(AMediaCodecBufferInfo *info);
     static void* getpcm_thread(void *arg);
     static void* encode_thread(void *arg);
-    inline void onPcmData(uint8_t *bytes,uint32_t size) const;
+    inline void onPcmData(uint8_t *bytes,uint32_t size);
+
+    static void OnInputAvailableCB(AMediaCodec *mediaCodec, void *userdata, int32_t index);
+    static void OnOutputAvailableCB(AMediaCodec *mediaCodec, void *userdata, int32_t index, AMediaCodecBufferInfo *bufferInfo);
+    static void OnFormatChangedCB(AMediaCodec *mediaCodec, void *userdata, AMediaFormat *format);
+    static void OnErrorCB(AMediaCodec *mediaCodec, void *userdata, media_status_t err, int32_t actionCode, const char *detail);
+
+    inline void notifyOutputAvailable(int32_t index, AMediaCodecBufferInfo *bufferInfo);
+    inline void onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info);
+    inline void onFormatChange(AMediaFormat *format);
     inline void onEncodeFrame(uint8_t *bytes,uint32_t size,uint8_t type,uint8_t channel,uint16_t sampleRate) const;
     static int connectSocket(const char *ip, int port);
+    static void* send_audio_thread(void *arg);
 
 public:
     AudioEncoder();

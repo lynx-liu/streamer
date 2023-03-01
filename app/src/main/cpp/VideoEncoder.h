@@ -37,10 +37,10 @@ struct VideoHeader {
 };
 #pragma pack(pop)
 
-typedef struct AMediaInfo {
+typedef struct VideoInfo {
     int32_t outIndex;
     AMediaCodecBufferInfo bufferInfo;
-} AMediaInfo;
+} VideoInfo;
 
 typedef struct VideoParam {
     VideoType videoType;
@@ -75,9 +75,9 @@ private:
     int8_t *trackTotal;
 
     pthread_t send_tid = 0;
-    std::mutex mtx;
-    std::condition_variable cond;
-    std::queue<AMediaInfo> mediaInfoQueue;
+    std::mutex mtxOut;
+    std::condition_variable condOut;
+    std::queue<VideoInfo> mediaInfoQueue;
 
 private:
     ANativeWindow* createEncoder(AMediaMuxer *muxer);
