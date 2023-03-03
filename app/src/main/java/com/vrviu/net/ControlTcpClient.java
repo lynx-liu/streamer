@@ -74,6 +74,10 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_OPEN_DOCUMENT=0x36;
     private static final int PACKET_TYPE_ADJUST_VOLUME=0x46;
 
+    private static final byte URL_MODE = 0x01;
+    private static final byte FILE_MODE = 0x02;
+    private static final byte SHARE_MODE = 0x03;
+
     private static final int ACTION_DOWN = 0x08;
     private static final int ACTION_UP = 0x09;
     private static final int ACTION_MOVE = 0x0A;
@@ -171,6 +175,10 @@ public final class ControlTcpClient extends TcpClient{
                         Log.d("llx", action);
                         new Thread(() -> sendStartDocuments()).start();
                         break;
+
+                    case Intent.ACTION_CHOOSER:
+                        Log.d("llx", action);
+                        break;
                 }
             }
         }
@@ -192,7 +200,7 @@ public final class ControlTcpClient extends TcpClient{
             public void onEvent(int event, String filename) {
                 if(filename!=null) {
                     if (SystemUtils.isTopPackage(context, packageName)) {
-                        new Thread(() -> sendFilePath(filename)).start();
+                        new Thread(() -> sendFilePath(filename, FILE_MODE)).start();
                     } else {
                         File imageFile = new File(file, filename);
                         Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
@@ -839,7 +847,7 @@ public final class ControlTcpClient extends TcpClient{
         Log.d("llx","sendClipboard end threadID:"+Thread.currentThread().getId());
     }
 
-    private void sendFilePath(String path) {
+    private void sendFilePath(String path, byte mode) {
         if(dataOutputStream==null)
             return;
 
@@ -854,7 +862,7 @@ public final class ControlTcpClient extends TcpClient{
         buf[5] = (PACKET_TYPE_OPEN_URL>>16)&0xFF;
         buf[6] = (PACKET_TYPE_OPEN_URL>>8)&0xFF;
         buf[7] = PACKET_TYPE_OPEN_URL&0xFF;
-        buf[8] = 0x02;//1:URL, 2:file/path
+        buf[8] = mode;//1:URL, 2:file/path, 3:share
         System.arraycopy(pathBytes, 0, buf, 9, pathBytes.length);
         try {
             dataOutputStream.write(buf);
