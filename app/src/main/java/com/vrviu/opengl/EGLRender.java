@@ -1,20 +1,24 @@
 package com.vrviu.opengl;
 
+import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.view.Surface;
 
+import com.vrviu.opengl.gltext.TextRenderer;
+
 public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private EglWindow eglWindow;
     private TextureRender mTextureRender;
+    private TextRenderer mTextRenderer;
     private SurfaceTexture mSurfaceTexture;
     private long mIntervalTime = -1;
     private long mLastRefreshTime = -1;
     private int fps = -1;
     private static final float radio = 0.8f;
 
-    public EGLRender(Surface surface, int width, int height, float sharp, int maxFps, Handler handler) {
+    public EGLRender(Context context, Surface surface, int width, int height, float sharp, int maxFps, Handler handler) {
         fps = maxFps;
         if(maxFps>0) mIntervalTime = (long) (1000/maxFps*radio);
         eglWindow = new EglWindow(surface, width, height);
@@ -24,6 +28,8 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         mSurfaceTexture = new SurfaceTexture(mTextureRender.getTextureId());
         mSurfaceTexture.setDefaultBufferSize(width, height);
         mSurfaceTexture.setOnFrameAvailableListener(this, handler);
+
+        mTextRenderer = new TextRenderer(context,width,height);
     }
 
     public Surface getSurface() {
@@ -56,10 +62,11 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         eglWindow.makeCurrent();
         mSurfaceTexture.updateTexImage();
 
-        long currentTime = SystemClock.uptimeMillis();
+        long currentTime = System.currentTimeMillis();
         if(currentTime-mLastRefreshTime>=mIntervalTime) {
             mLastRefreshTime = currentTime;
             mTextureRender.drawFrame();
+            mTextRenderer.drawText(String.valueOf(currentTime));
             eglWindow.setPresentationTime(SystemClock.elapsedRealtimeNanos());
             eglWindow.swapBuffers();
         }

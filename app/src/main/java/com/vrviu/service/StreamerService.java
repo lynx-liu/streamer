@@ -223,7 +223,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
                         float sharp = eglRender.getSharp();
                         eglRender.Release();
 
-                        eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
+                        eglRender = new EGLRender(getApplicationContext(), surface, videoWidth, videoHeight, sharp, fps, mhandler);
                         surface = eglRender.getSurface();
                     }
 
@@ -333,7 +333,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
             }
 
             if(sharp>0 || dynamicFps) {
-                eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, maxFps, mhandler);
+                eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, maxFps, mhandler);
                 surface = eglRender.getSurface();
             }
 
@@ -429,7 +429,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
                 if(eglRender!=null) {
                     float sharp = eglRender.getSharp();
                     eglRender.Release();
-                    eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
+                    eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, fps, mhandler);
                     surface = eglRender.getSurface();
                 }
 
