@@ -187,7 +187,7 @@ public final class ControlTcpClient extends TcpClient{
 
                     case ActivityMonitor.ACTION_REQUEST_PERMISSIONS:
                         new Thread(() -> sendSensorAsk(new byte[]{SENSOR_TYPE_GPS})).start();
-                        return false;
+                        break;
                 }
             }
             return true;
@@ -592,9 +592,12 @@ public final class ControlTcpClient extends TcpClient{
             case SENSOR_TYPE_BDS:
                 SystemUtils.setProperty("fake.gps.location",data0+","+data1);
 
-                if(data0!=0 || data1!=0) {
-                    ComponentName componentName = SystemUtils.getTopActivity(mContext);
-                    SystemUtils.grantPermission(componentName.getPackageName(), Manifest.permission.ACCESS_FINE_LOCATION);
+                if(SystemUtils.isTopPackage(mContext,"com.android.permissioncontroller")) {
+                    if (data0 != 0 || data1 != 0) {
+                        controlUtils.injectTowKeycode(KeyEvent.KEYCODE_ENTER,KeyEvent.KEYCODE_ENTER);
+                    } else {
+                        controlUtils.injectKeycode(KEYCODE_BACK);
+                    }
                 }
                 break;
         }
