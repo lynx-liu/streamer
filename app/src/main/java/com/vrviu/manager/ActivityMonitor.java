@@ -18,6 +18,7 @@ public class ActivityMonitor {
     private static final long delayMillis = 50;
     private static Handler mHandler = null;
     private Context mContext = null;
+    public static final String ACTION_REQUEST_PERMISSIONS = "android.content.pm.action.REQUEST_PERMISSIONS";
     private static final List<ActivityChangeListener> activityChangeListeners=new ArrayList<>();
     private static final List<ActionChangeListener> actionChangeListeners=new ArrayList<>();
 
@@ -42,7 +43,7 @@ public class ActivityMonitor {
     }
 
     public interface ActionChangeListener {
-        void onActionChanged(String action, String pkg);
+        boolean onActionChanged(String action, String pkg);
     }
 
     public ActivityMonitor(Context context, Handler handler) {
@@ -75,10 +76,15 @@ public class ActivityMonitor {
             mHandler.removeCallbacks(runnable);
             mHandler.postDelayed(runnable, delayMillis);
 
+            boolean diableStart = false;
             String action = intent.getAction();
             for (ActionChangeListener actionChangeListener:actionChangeListeners) {
-                actionChangeListener.onActionChanged(action, pkg);
+                if(!actionChangeListener.onActionChanged(action, pkg))
+                    diableStart = true;
             }
+
+            if(diableStart)
+                return false;
             return true;
         }
 

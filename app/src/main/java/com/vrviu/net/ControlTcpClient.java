@@ -1,7 +1,9 @@
 package com.vrviu.net;
 
+import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
@@ -69,6 +71,7 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_INPUT_STRING=0x28;
     private static final int PACKET_TYPE_SCENE_MODE = 0x2A;
     private static final int PACKET_TYPE_CLIPBOARD_DATA=0x32;
+    private static final int PACKET_TYPE_SENSOR_ASK=0x33;
     private static final int PACKET_TYPE_MIC_CAMERA=0x34;
     private static final int PACKET_TYPE_OPEN_URL=0x35;
     private static final int PACKET_TYPE_OPEN_DOCUMENT=0x36;
@@ -128,6 +131,7 @@ public final class ControlTcpClient extends TcpClient{
 
     private static final Point screenSize = new Point();
     private static Handler handler = null;
+    private Context mContext = null;
     private final ClipboardManager clipboardManager;
     private final AudioManager audioManager;
     private final CameraManager cameraManager;
@@ -144,6 +148,7 @@ public final class ControlTcpClient extends TcpClient{
         this.isGameMode = isGameMode;
         this.controlTs=controlTs;
 
+        mContext = context;
         handler = new Handler(context.getMainLooper());
         controlUtils = new ControlUtils(context);
 
@@ -166,21 +171,26 @@ public final class ControlTcpClient extends TcpClient{
 
     ActivityMonitor.ActionChangeListener actionChangeListener = new ActivityMonitor.ActionChangeListener() {
         @Override
-        public void onActionChanged(String action, String pkg) {
+        public boolean onActionChanged(String action, String pkg) {
             if(action!=null) {
+                Log.d("llx", "action:"+action+", pkg:"+pkg);
+
                 switch (action) {
                     case Intent.ACTION_GET_CONTENT:
                     case Intent.ACTION_PICK:
                     case Intent.ACTION_OPEN_DOCUMENT://原神
-                        Log.d("llx", action);
                         new Thread(() -> sendStartDocuments()).start();
                         break;
 
                     case Intent.ACTION_CHOOSER:
-                        Log.d("llx", action);
                         break;
+
+                    case ActivityMonitor.ACTION_REQUEST_PERMISSIONS:
+                        new Thread(() -> sendSensorAsk(new byte[]{SENSOR_TYPE_GPS})).start();
+                        return false;
                 }
             }
+            return true;
         }
     };
 
@@ -581,6 +591,11 @@ public final class ControlTcpClient extends TcpClient{
             case SENSOR_TYPE_GPS:
             case SENSOR_TYPE_BDS:
                 SystemUtils.setProperty("fake.gps.location",data0+","+data1);
+
+                if(data0!=0 || data1!=0) {
+                    ComponentName componentName = SystemUtils.getTopActivity(mContext);
+                    SystemUtils.grantPermission(componentName.getPackageName(), Manifest.permission.ACCESS_FINE_LOCATION);
+                }
                 break;
         }
     }
@@ -870,6 +885,31 @@ public final class ControlTcpClient extends TcpClient{
             e.printStackTrace();
         }
         Log.d("llx","sendFilePath end threadID:"+Thread.currentThread().getId());
+    }
+
+    private void sendSensorAsk(byte[] sensorType) {
+        if(dataOutputStream==null)
+            return;
+
+        int payloadByteSize = 5+sensorType.length;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_SENSOR_ASK>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_SENSOR_ASK>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_SENSOR_ASK>>8)&0xFF;
+        buf[7] = PACKET_TYPE_SENSOR_ASK&0xFF;
+        buf[8] = (byte) sensorType.length;
+
+        System.arraycopy(sensorType,0,buf,9,sensorType.length);
+        try {
+            dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.d("llx","sendSensorAsk end threadID:"+Thread.currentThread().getId());
     }
 
     private void sendMicCameraState(int mic, int camera) {

@@ -155,6 +155,19 @@ public final class SystemUtils {
         }
     }
 
+    public static boolean grantPermission(String packageName, String permission){
+        String cmd="pm grant "+packageName+" "+permission;
+        Log.d("llx", cmd);
+
+        try {
+            Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
+        } catch (Exception e) {
+            Log.d("llx",e.toString());
+            return false;
+        }
+        return true;
+    }
+
     public static boolean isImageFile(String filename) {
         String[] extensions = new String[] {"jpg", "png", "gif","jpeg","bmp"};
         for (String extenstion:extensions) {
