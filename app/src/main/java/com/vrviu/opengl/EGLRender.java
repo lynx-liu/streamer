@@ -39,7 +39,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     }
 
     public boolean isShowText() {
-        return mTextureRender!=null;
+        return mTextRenderer!=null;
     }
 
     public float getSharp() {
@@ -65,6 +65,9 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
 
     @Override
     public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+        if(mSurfaceTexture==null)
+            return;
+
         eglWindow.makeCurrent();
         mSurfaceTexture.updateTexImage();
 
@@ -81,7 +84,10 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     }
 
     public void stop() {
-        mSurfaceTexture.setOnFrameAvailableListener(null);
+        if(mSurfaceTexture!=null) {
+            mSurfaceTexture.setOnFrameAvailableListener(null);
+            mSurfaceTexture = null;
+        }
     }
 
     public void Release() {
