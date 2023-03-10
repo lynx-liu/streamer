@@ -18,7 +18,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private int fps = -1;
     private static final float radio = 0.8f;
 
-    public EGLRender(Context context, Surface surface, int width, int height, float sharp, int maxFps, Handler handler) {
+    public EGLRender(Context context, Surface surface, int width, int height, float sharp, int maxFps, boolean showText, Handler handler) {
         fps = maxFps;
         if(maxFps>0) mIntervalTime = (long) (1000/maxFps*radio);
         eglWindow = new EglWindow(surface, width, height);
@@ -29,11 +29,17 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         mSurfaceTexture.setDefaultBufferSize(width, height);
         mSurfaceTexture.setOnFrameAvailableListener(this, handler);
 
-        mTextRenderer = new TextRenderer(context,width,height);
+        if(showText) {
+            mTextRenderer = new TextRenderer(context, width, height);
+        }
     }
 
     public Surface getSurface() {
         return new Surface(mSurfaceTexture);
+    }
+
+    public boolean isShowText() {
+        return mTextureRender!=null;
     }
 
     public float getSharp() {
@@ -66,7 +72,9 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         if(currentTime-mLastRefreshTime>=mIntervalTime) {
             mLastRefreshTime = currentTime;
             mTextureRender.drawFrame();
-            mTextRenderer.drawText(String.valueOf(currentTime));
+            if(mTextRenderer!=null) {
+                mTextRenderer.drawText(String.valueOf(currentTime));
+            }
             eglWindow.setPresentationTime(SystemClock.elapsedRealtimeNanos());
             eglWindow.swapBuffers();
         }

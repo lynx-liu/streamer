@@ -190,6 +190,11 @@ bool VideoEncoder::start() {
         return true;
     mIsRecording = true;
 
+    if(!videoCodec) {
+        release();
+        return false;
+    }
+
 #if CALL_BACK
     AMediaCodecOnAsyncNotifyCallback videoCallBack = {
             OnInputAvailableCB,
@@ -385,10 +390,7 @@ bool VideoEncoder::stop() {
         return false;
     mIsRecording = false;
 
-#if CALL_BACK
-    AMediaCodecOnAsyncNotifyCallback callback = {};
-    AMediaCodec_setAsyncNotifyCallback(videoCodec, callback, NULL);
-#else
+#if !CALL_BACK
     if(encode_tid!=0) {
         LOGI("video encode pthread_join!!!");
         pthread_join(encode_tid, nullptr);
@@ -397,6 +399,10 @@ bool VideoEncoder::stop() {
 #endif
 
     if (videoCodec) {
+#if CALL_BACK
+        AMediaCodecOnAsyncNotifyCallback callback = {};
+        AMediaCodec_setAsyncNotifyCallback(videoCodec, callback, NULL);
+#endif
         AMediaCodec_signalEndOfInputStream(videoCodec);
         AMediaCodec_stop(videoCodec);
         AMediaCodec_delete(videoCodec);

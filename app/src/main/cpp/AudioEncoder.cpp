@@ -86,32 +86,6 @@ bool AudioEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(audioFormat, AMEDIAFORMAT_KEY_BIT_RATE,32000);//32K
     AMediaFormat_setInt32(audioFormat, AMEDIAFORMAT_KEY_MAX_INPUT_SIZE, BUF_SIZE);
 
-    if(audioType==AUDIO_OPUS) {
-        uint8_t csd0[] = {
-                // Opus
-                0x4f, 0x70, 0x75, 0x73,
-                // Head
-                0x48, 0x65, 0x61, 0x64,
-                // Version
-                0x01,
-                // Channel Count
-                CHANNEL_COUNT,
-                // Pre skip
-                0x00, 0x00,
-                // Input Sample Rate (Hz), eg: 48000
-                SAMPLE_RATE&0xFF, (SAMPLE_RATE>>8)&0xFF, (SAMPLE_RATE>>16)&0xFF, (SAMPLE_RATE>>24)&0xFF,
-                // Output Gain (Q7.8 in dB)
-                0x00, 0x00,
-                // Mapping Family
-                0x00};
-        uint8_t csd1[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        uint8_t csd2[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-        AMediaFormat_setBuffer(audioFormat, AMEDIAFORMAT_KEY_CSD_0, csd0, sizeof(csd0));
-        AMediaFormat_setBuffer(audioFormat, AMEDIAFORMAT_KEY_CSD_1, csd1, sizeof(csd1));
-        AMediaFormat_setBuffer(audioFormat, AMEDIAFORMAT_KEY_CSD_2, csd2, sizeof(csd2));
-    }
-
     audioCodec = AMediaCodec_createEncoderByType(AUDIO_MIME);
     if(audioCodec== nullptr) {
         LOGE("audio createEncoderByType failed");
@@ -272,13 +246,12 @@ void* AudioEncoder::getpcm_thread(void *arg) {
             continue;
         }
 
-        jbyte* audio_bytes = (jbyte*)calloc(nSize,1);
-        jniEnv->GetByteArrayRegion(jPcmBuffer, 0, nSize,audio_bytes);
+        jbyte* audio_bytes = jniEnv->GetByteArrayElements(jPcmBuffer, NULL);
 #if dump_audio
         fwrite(audio_bytes, 1, nSize, fp);
 #endif
         audioEncoder->onPcmData(reinterpret_cast<uint8_t *>(audio_bytes), nSize);
-        free(audio_bytes);
+        jniEnv->ReleaseByteArrayElements(jPcmBuffer,audio_bytes,0);
     }
 #if dump_audio
     fclose(fp);
@@ -291,6 +264,8 @@ void* AudioEncoder::getpcm_thread(void *arg) {
     jmethodID release = jniEnv->GetMethodID(audioRecordClass, "release","()V");
     jniEnv->CallVoidMethod(audioRecord, release);//release recording
 
+    jniEnv->DeleteLocalRef(audioRecord);
+    jniEnv->DeleteLocalRef(audioRecordClass);
     audioEncoder->jvm->DetachCurrentThread();
     LOGI("audio getpcm_thread exit");
     return nullptr;
@@ -439,13 +414,19 @@ bool AudioEncoder::stop() {
         indexQueue.pop();
     }
 
+#if !CALL_BACK
     if(encode_tid!=0) {
         LOGI("audio encode pthread_join!!!");
         pthread_join(encode_tid, nullptr);
         encode_tid = 0;
     }
+#endif
 
     if (audioCodec) {
+#if CALL_BACK
+        AMediaCodecOnAsyncNotifyCallback callback = {};
+        AMediaCodec_setAsyncNotifyCallback(audioCodec, callback, NULL);
+#endif
         AMediaCodec_signalEndOfInputStream(audioCodec);
         AMediaCodec_stop(audioCodec);
         AMediaCodec_delete(audioCodec);
@@ -468,7 +449,7 @@ bool AudioEncoder::release() {
     mIsSending = false;
     condOut.notify_all();
     if(send_tid!=0) {
-        LOGI("video send pthread_join!!!");
+        LOGI("audio send pthread_join!!!");
         pthread_join(send_tid, nullptr);
         send_tid = 0;
     }

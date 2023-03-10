@@ -91,7 +91,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEn
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_MediaEncoder_start(JNIEnv *env, jobject thiz) {
     pthread_mutex_lock(&mutex);
-    bool bRet = videoEncoder->start() && audioEncoder->start();
+    bool bRet = audioEncoder->start() && videoEncoder->start();
     pthread_mutex_unlock(&mutex);
     return bRet;
 }

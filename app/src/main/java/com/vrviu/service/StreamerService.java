@@ -221,9 +221,10 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
                     if (eglRender != null) {
                         int fps = eglRender.getFps();
                         float sharp = eglRender.getSharp();
+                        boolean showText = eglRender.isShowText();
                         eglRender.Release();
 
-                        eglRender = new EGLRender(getApplicationContext(), surface, videoWidth, videoHeight, sharp, fps, mhandler);
+                        eglRender = new EGLRender(getApplicationContext(), surface, videoWidth, videoHeight, sharp, fps, showText, mhandler);
                         surface = eglRender.getSurface();
                     }
 
@@ -264,7 +265,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
     public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort,
                                   int codec, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, boolean dynamicFps,
                                   int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode,
-                                  int gameMode, String packageName, String downloadDir, float sharp, int audioType,
+                                  int gameMode, String packageName, String downloadDir, float sharp, boolean showText, int audioType,
                                   int defaulQP, int maxQP, int minQP, String fakeVideoPath) {
         boolean isGameMode = gameMode!=NOT_IN_GAME;
 
@@ -332,8 +333,8 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
                 eglRender = null;
             }
 
-            if(sharp>0 || dynamicFps) {
-                eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, maxFps, mhandler);
+            if(sharp>0 || dynamicFps || showText) {
+                eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, maxFps, showText, mhandler);
                 surface = eglRender.getSurface();
             }
 
@@ -428,8 +429,9 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
 
                 if(eglRender!=null) {
                     float sharp = eglRender.getSharp();
+                    boolean showText = eglRender.isShowText();
                     eglRender.Release();
-                    eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, fps, mhandler);
+                    eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, fps, showText, mhandler);
                     surface = eglRender.getSurface();
                 }
 

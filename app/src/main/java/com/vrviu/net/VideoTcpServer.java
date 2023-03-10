@@ -42,7 +42,7 @@ public class VideoTcpServer extends TcpServer {
                                                int bitrate, int orientationType, int enableSEI,
                                                int rateControlMode, int gameMode,
                                                String packageName, String downloadDir,
-                                               float sharp, int audioType,
+                                               float sharp, boolean showText, int audioType,
                                                int defaulQP, int maxQP, int minQP,
                                                String fakeVideoPath);
 
@@ -97,6 +97,7 @@ public class VideoTcpServer extends TcpServer {
             String packageName = JsonUtils.get(jsonObject, "packageName", null);
             String downloadDir = JsonUtils.get(jsonObject, "downloadDir", null);
             float sharp = (float) JsonUtils.get(jsonObject, "sharp",0.0);
+            boolean showText = JsonUtils.get(jsonObject, "showText", 0)!=0;
             int audioType = JsonUtils.get(jsonObject, "audioType", 0);
             int defaulQP = JsonUtils.get(jsonObject, "defaulQP", 36);
             int maxQP = JsonUtils.get(jsonObject, "maxQP", 42);
@@ -121,7 +122,7 @@ public class VideoTcpServer extends TcpServer {
 
             return mCallback.startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
                     codec,videoCodecProfile,idrPeriod,maxFps,minFps,dynamicFps,width,height,bitrate,orientationType,
-                    enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,audioType,defaulQP,maxQP,minQP,
+                    enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,showText,audioType,defaulQP,maxQP,minQP,
                     fakeVideoPath);
         } catch (Exception e) {
             e.printStackTrace();
