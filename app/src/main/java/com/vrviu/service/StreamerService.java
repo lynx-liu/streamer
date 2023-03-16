@@ -18,6 +18,7 @@ import android.view.accessibility.AccessibilityEvent;
 import com.vrviu.manager.ActivityMonitor;
 import com.vrviu.manager.CaptureHelper;
 import com.vrviu.manager.GameHelper;
+import com.vrviu.net.GsmTcpServer;
 import com.vrviu.opengl.EGLRender;
 import com.vrviu.streamer.BuildConfig;
 import com.vrviu.net.ControlTcpClient;
@@ -50,6 +51,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
     private GameHelper gameHelper = null;
 
     private static VideoTcpServer videoTcpServer = null;
+    private static GsmTcpServer gsmTcpServer = null;
 
     @Override
     public void onCreate() {
@@ -67,11 +69,14 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         mhandler = new Handler();
 
         videoTcpServer = new VideoTcpServer(this,51896);
+        gsmTcpServer = new GsmTcpServer(52000);
+
         activityMonitor = new ActivityMonitor(getApplicationContext(), mhandler);
         activityMonitor.addActivityChangeListener(activityChangeListener);
         captureHelper = new CaptureHelper(screenSize);
 
         videoTcpServer.start();
+        gsmTcpServer.start();
     }
 
     ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
@@ -90,6 +95,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         @Override
         public void onSceneChanged(int report) {
             videoTcpServer.reportScene(report);
+            gsmTcpServer.reportScene(report);
         }
     };
 
@@ -153,6 +159,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         }
 
         videoTcpServer.interrupt();
+        gsmTcpServer.interrupt();
         displayManager.unregisterDisplayListener(displayListener);
         super.onDestroy();
     }
