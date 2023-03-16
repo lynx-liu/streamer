@@ -66,8 +66,8 @@ public class GsmTcpServer extends TcpServer {
     }
 
     public void reportScene(int report) {
-        byte scene = (byte) report;
-        byte index = (byte) (report>>8);
+        int scene = report;
+        int index = report>>8;
 
         JSONObject jsonObject = new JSONObject();
         try {
