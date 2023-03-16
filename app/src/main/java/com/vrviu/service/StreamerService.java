@@ -94,7 +94,8 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
     GameHelper.onSceneChangeListener sceneChangeListener = new GameHelper.onSceneChangeListener() {
         @Override
         public void onSceneChanged(int report) {
-            videoTcpServer.reportScene(report);
+            if(controlTcpClient!=null)
+                controlTcpClient.sendSceneMode(report);
             gsmTcpServer.reportScene(report);
         }
     };

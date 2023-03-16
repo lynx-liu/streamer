@@ -70,6 +70,7 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_ROTATION = 0x26;
     private static final int PACKET_TYPE_INPUT_STRING=0x28;
     private static final int PACKET_TYPE_SCENE_MODE = 0x2A;
+    private static final int PACKET_TYPE_SCENE_EXT = 0x31;
     private static final int PACKET_TYPE_CLIPBOARD_DATA=0x32;
     private static final int PACKET_TYPE_SENSOR_ASK=0x33;
     private static final int PACKET_TYPE_MIC_CAMERA=0x34;
@@ -863,6 +864,35 @@ public final class ControlTcpClient extends TcpClient{
             e.printStackTrace();
         }
         Log.d("llx","sendClipboard end threadID:"+Thread.currentThread().getId());
+    }
+
+    public void sendSceneMode(int report) {
+        if(dataOutputStream==null)
+            return;
+
+        int payloadByteSize = 10;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_SCENE_EXT>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_SCENE_EXT>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_SCENE_EXT>>8)&0xFF;
+        buf[7] = PACKET_TYPE_SCENE_EXT&0xFF;
+        buf[8] = (byte) report;//SceneMode
+        buf[9] = (byte) (report>>8);//Index
+        buf[10] = 0;//reserved
+        buf[11] = 0;
+        buf[12] = 0;
+        buf[13] = 0;
+
+        try {
+            dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.d("llx","sendSceneMode end threadID:"+Thread.currentThread().getId());
     }
 
     private void sendFilePath(String path, byte mode) {
