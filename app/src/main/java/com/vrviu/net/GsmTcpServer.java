@@ -102,6 +102,7 @@ public class GsmTcpServer extends TcpServer {
                     int requestId = JsonUtils.get(jsonObject, "requestId", 0);
                     switch (operationId) {
                         case queryState:
+                            reportState(requestId);
                             break;
 
                         default:
