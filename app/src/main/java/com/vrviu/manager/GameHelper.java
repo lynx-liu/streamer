@@ -15,6 +15,7 @@ import java.io.IOException;
 
 public class GameHelper extends Thread{
     private int index = 0;
+    private int count = 0;
     private Point screenSize = null;
     private JSONArray gameinfo = null;
     private JSONArray eventArray = null;
@@ -135,6 +136,7 @@ public class GameHelper extends Thread{
 
             String cmd = JsonUtils.get(eventObject, "sh", null);
             int wait = JsonUtils.get(eventObject, "wait", 2000);
+            int tryCount = JsonUtils.get(eventObject, "retry", -1);
 
             if(sceneDetect != null) {
                 byte[] buffer = captureHelper.screenCap(null);
@@ -150,8 +152,13 @@ public class GameHelper extends Thread{
                         }
                     }
                     sceneDetect = null;
+                    tryCount = count;
                 }
             } else {
+                if(tryCount<0) {
+                    tryCount = 0;
+                }
+
                 if(cmd!=null) {
                     try {
                         shell(wait, cmd);
@@ -161,8 +168,16 @@ public class GameHelper extends Thread{
                 }
             }
 
-            if(sceneDetect == null) {
+            count++;
+            if(tryCount>=0 && count>tryCount) {
+                sceneDetect = null;
+                count = 0;
                 index++;
+            } else {
+                continue;
+            }
+
+            if(sceneDetect == null) {
                 try {
                     int report = eventObject.getInt("report");
                     Log.d("llx", "report:"+report);
