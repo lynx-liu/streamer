@@ -16,6 +16,7 @@ extern "C" {
 
 cv::Mat targetMat;
 float degree = 0.8;
+cv::Rect rectROI;
 
 void _init(void) {
 }
@@ -52,11 +53,25 @@ double compare(cv::Mat gray, cv::Mat traget) {
     return ret;
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat threshold) {
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat threshold, jint roiX, jint roiY, jint roiW, jint roiH) {
     if(targetFile!= nullptr) {
         const char* filename = env->GetStringUTFChars(targetFile, NULL);
         if(filename) {
-            targetMat = cv::imread(filename,cv::IMREAD_REDUCED_GRAYSCALE_4);
+            int scale = 1;
+            int flags = cv::IMREAD_REDUCED_GRAYSCALE_4;
+            switch(flags) {
+                case cv::IMREAD_REDUCED_GRAYSCALE_2:
+                case cv::IMREAD_REDUCED_COLOR_2:
+                case cv::IMREAD_REDUCED_GRAYSCALE_4:
+                case cv::IMREAD_REDUCED_COLOR_4:
+                case cv::IMREAD_REDUCED_GRAYSCALE_8:
+                case cv::IMREAD_REDUCED_COLOR_8:
+                    scale = flags/8;
+                    break;
+            }
+
+            rectROI = cv::Rect(roiX/scale,roiY/scale,roiW/scale,roiH/scale);
+            targetMat = cv::imread(filename,flags);
             equalizeHist(targetMat, targetMat);//直方图均衡化
             degree = threshold;
 #if NDEBUG
@@ -87,7 +102,9 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_detect(JNIEnv *en
     cv::cvtColor(imgData, imgData, cv::COLOR_BGRA2GRAY);
     cv::resize(imgData,imgData,targetMat.size());
     equalizeHist(imgData, imgData);//直方图均衡化
-    return compare(imgData,targetMat)>degree;
+    if(rectROI.empty())
+        return compare(imgData,targetMat)>degree;
+    return compare(imgData(rectROI), targetMat(rectROI))>degree;
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_release(JNIEnv *env, jobject thiz) {

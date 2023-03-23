@@ -8,7 +8,7 @@ public class SceneDetect {
           System.loadLibrary("SceneDetect");
      }
 
-     public native boolean init(String fileName, float threshold);
+     public native boolean init(String fileName, float threshold, int roiX, int roiY, int roiW, int roiH);
      public native boolean detect(byte[] pixel, int width, int height);
      public native boolean release();
 }

@@ -126,10 +126,23 @@ public class GameHelper extends Thread{
 
             if(sceneDetect==null) {
                 String targetFile = JsonUtils.get(eventObject,"PIC", null);
-                float threshold = (float) JsonUtils.get(eventObject, "threshold", 0.8);
                 if(targetFile!=null) {
+                    float threshold = (float) JsonUtils.get(eventObject, "threshold", 0.8);
+
+                    int roiX = 0, roiY = 0, roiW = 0, roiH = 0;
+                    try {
+                        JSONObject rectROI = new JSONObject(eventObject.getString("ROI"));
+                        roiX = rectROI.getInt("x");
+                        roiY = rectROI.getInt("y");
+                        roiW = rectROI.getInt("w");
+                        roiH = rectROI.getInt("h");
+                        Log.d("llx", "ROI {x:"+roiX+", y:"+roiY+", w:"+roiW+", h:"+roiH+"}");
+                    } catch (JSONException e) {
+
+                    }
+
                     sceneDetect = new SceneDetect();
-                    sceneDetect.init(targetFile, threshold);
+                    sceneDetect.init(targetFile, threshold, roiX, roiY, roiW, roiH);
                     Log.d("llx",targetFile+", "+threshold);
                 }
             }
