@@ -27,4 +27,12 @@ public class JsonUtils {
             return defval;
         }
     }
+
+    static public boolean get(JSONObject jsonObject,String key,boolean defval){
+        try {
+            return jsonObject.getBoolean(key);
+        } catch (JSONException e) {
+            return defval;
+        }
+    }
 }
