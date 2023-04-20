@@ -66,7 +66,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     }
 
     @Override
-    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+    public synchronized void onFrameAvailable(SurfaceTexture surfaceTexture) {
         if(mSurfaceTexture==null)
             return;
 
@@ -86,14 +86,14 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         }
     }
 
-    public void stop() {
+    public synchronized void stop() {
         if(mSurfaceTexture!=null) {
             mSurfaceTexture.setOnFrameAvailableListener(null);
             mSurfaceTexture = null;
         }
     }
 
-    public void Release() {
+    public synchronized void Release() {
         eglWindow.Release();
     }
 }

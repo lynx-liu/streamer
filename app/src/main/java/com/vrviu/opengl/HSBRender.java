@@ -80,7 +80,7 @@ public  class HSBRender {
     private float[] mSTMatrix = new float[16];
 
     public HSBRender(int texture) {
-        this(texture, 0.0f,1.2f,1.5f);
+        this(texture, 0.0f,1.2f,1.2f);
     }
 
     /*
