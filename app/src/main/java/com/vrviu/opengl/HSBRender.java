@@ -9,14 +9,14 @@ import java.nio.FloatBuffer;
 public  class HSBRender {
     private static final int FLOAT_SIZE_BYTES = 4;
 
-    private static final float FULL_RECTANGLE_COORDS[] = {
+    private static final float[] FULL_RECTANGLE_COORDS = {
             -1.0f, -1.0f,1.0f,   // 0 bottom left
             1.0f, -1.0f,1.0f,   // 1 bottom right
             -1.0f,  1.0f,1.0f,   // 2 top left
             1.0f,  1.0f,1.0f   // 3 top right
     };
 
-    private static final float FULL_RECTANGLE_TEX_COORDS[] = {
+    private static final float[] FULL_RECTANGLE_TEX_COORDS = {
             0.0f, 1.0f, 1f,1.0f,    // 0 bottom left
             1.0f, 1.0f,1f,1.0f,     // 1 bottom right
             0.0f, 0.0f, 1f,1.0f,    // 2 top left
@@ -63,7 +63,7 @@ public  class HSBRender {
                 "    gl_FragColor = texColor;\n" +
                 "}\n";
 
-    private int mProgram = 0;
+    private int mProgram;
     private int muMVPMatrixHandle;
     private int muSTMatrixHandle;
     private int maPositionHandle;

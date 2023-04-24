@@ -9,14 +9,14 @@ import java.nio.FloatBuffer;
 public  class TextureRender {
     private static final int FLOAT_SIZE_BYTES = 4;
 
-    private static final float FULL_RECTANGLE_COORDS[] = {
+    private static final float[] FULL_RECTANGLE_COORDS = {
             -1.0f, -1.0f,1.0f,   // 0 bottom left
             1.0f, -1.0f,1.0f,   // 1 bottom right
             -1.0f,  1.0f,1.0f,   // 2 top left
             1.0f,  1.0f,1.0f   // 3 top right
     };
 
-    private static final float FULL_RECTANGLE_TEX_COORDS[] = {
+    private static final float[] FULL_RECTANGLE_TEX_COORDS = {
             0.0f, 1.0f, 1f,1.0f,    // 0 bottom left
             1.0f, 1.0f,1f,1.0f,     // 1 bottom right
             0.0f, 0.0f, 1f,1.0f,    // 2 top left
@@ -78,8 +78,8 @@ public  class TextureRender {
                 "    gl_FragColor = vec4(sum.r, sum.g, sum.b, 1.0);\n"+
                 "}\n";
 
-    private int mProgram = 0;
-    private int mTextureID = -1;
+    private int mProgram;
+    private int mTextureID;
     private int muMVPMatrixHandle;
     private int muSTMatrixHandle;
     private int maPositionHandle;
@@ -87,7 +87,6 @@ public  class TextureRender {
     private int mSharpHandle;
     private int mTextureSizeHandle;
     private float mSharpLevel;
-    private float[] textureSize;
     private FloatBuffer TEXTURE_SIZE;
 
     private float[] mMVPMatrix = new float[16];
@@ -97,8 +96,7 @@ public  class TextureRender {
         Matrix.setIdentityM(mSTMatrix, 0);
 
         mSharpLevel = sharpLevel;
-        textureSize = new float[]{width,height};
-        TEXTURE_SIZE = GlUtil.createFloatBuffer(textureSize);
+        TEXTURE_SIZE = GlUtil.createFloatBuffer(new float[]{width,height});
 
         mTextureID = genTextures();
         mProgram = GlUtil.createProgram(VERTEX_SHADER, FRAGMENT_SHADER);
