@@ -55,12 +55,14 @@ public  class HSBRender {
                 "uniform float uContrast;\n" +
                 "uniform float uSaturation;\n" +
                 "void main() {\n"+
-                "    vec4 texColor = texture2D(uTexture, vTextureCoord);\n" +
-                "    texColor.rgb += uBrightness;\n" +
-                "    texColor.rgb = (texColor.rgb - 0.5) * max(uContrast, 0.0) + 0.5;\n" +
-                "    float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));\n" +
-                "    texColor.rgb = mix(vec3(luminance), texColor.rgb, uSaturation);\n" +
-                "    gl_FragColor = texColor;\n" +
+                "   vec4 texColor = texture2D(uTexture, vTextureCoord);\n" +
+                "   if (vTextureCoord.x <= 0.5) {\n" +
+                "       texColor.rgb += uBrightness;\n" +
+                "       texColor.rgb = (texColor.rgb - 0.5) * max(uContrast, 0.0) + 0.5;\n" +
+                "       float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));\n" +
+                "       texColor.rgb = mix(vec3(luminance), texColor.rgb, uSaturation);\n" +
+                "   }\n" +
+                "   gl_FragColor = texColor;\n" +
                 "}\n";
 
     private int mProgram;

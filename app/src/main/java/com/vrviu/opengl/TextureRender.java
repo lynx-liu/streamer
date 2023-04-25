@@ -54,6 +54,7 @@ public  class TextureRender {
                 "uniform vec2 mTextureSize;\n"+
                 "uniform float sharpLevel;\n"+
                 "void main() {\n"+
+                "  if (vTextureCoord.x <= 0.5) {\n" +
                 "    float xx = float(mTextureSize.x);\n"+
                 "    float yy = float(mTextureSize.y);\n"+
                 "    vec2 offset0 = vec2(-1.0 / xx, -1.0 / yy);\n"+
@@ -76,6 +77,9 @@ public  class TextureRender {
                 "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord.st + offset8.xy);\n"+
                 "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*sharpLevel;\n"+
                 "    gl_FragColor = vec4(sum.r, sum.g, sum.b, 1.0);\n"+
+                "  } else {\n" +
+                "    gl_FragColor = texture2D(uTexture, vTextureCoord);\n" +
+                "  }\n" +
                 "}\n";
 
     private int mProgram;
