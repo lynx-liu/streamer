@@ -351,6 +351,7 @@ void* VideoEncoder::send_video_thread(void *arg) {
 }
 
 inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int32_t flags, int64_t ts) {
+    if(flags>0) LOGI("flags: %d",flags);
     header.type = ntohs(videoParam.videoType);
     header.keyframe = ntohs(flags);
     header.timestamp = ntohq(ts);
