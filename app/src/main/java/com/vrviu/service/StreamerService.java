@@ -26,6 +26,7 @@ import com.vrviu.net.VideoTcpServer;
 import com.vrviu.streamer.MediaEncoder;
 import com.vrviu.utils.SurfaceControl;
 import com.vrviu.utils.SystemUtils;
+import com.vrviu.websocket.SocketManager;
 
 import java.io.IOException;
 
@@ -50,6 +51,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
     private CaptureHelper captureHelper = null;
     private GameHelper gameHelper = null;
 
+    private static SocketManager socketManager = null;
     private static VideoTcpServer videoTcpServer = null;
     private static GsmTcpServer gsmTcpServer = null;
 
@@ -68,6 +70,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         mContext = getApplicationContext();
         mhandler = new Handler();
 
+        socketManager = SocketManager.getInstance();
         videoTcpServer = new VideoTcpServer(this,51896);
         gsmTcpServer = new GsmTcpServer(52000);
 

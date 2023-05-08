@@ -21,7 +21,7 @@ public class MyWebSocket extends WebSocketServer {
     private static final String charSet ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     public MyWebSocket(int port, ISocketEvent event) {
-        super(new InetSocketAddress("localhost", port));
+        super(new InetSocketAddress("127.0.0.1", port));
         this.socketEvent = event;
     }
 

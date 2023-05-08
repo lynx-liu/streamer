@@ -1,9 +1,7 @@
 package com.vrviu.net;
 
-import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
