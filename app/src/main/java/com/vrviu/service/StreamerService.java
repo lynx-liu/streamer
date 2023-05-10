@@ -70,7 +70,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         mContext = getApplicationContext();
         mhandler = new Handler();
 
-        socketManager = SocketManager.getInstance();
+        socketManager = new SocketManager();
         videoTcpServer = new VideoTcpServer(this,51896);
         gsmTcpServer = new GsmTcpServer(52000);
 
@@ -78,6 +78,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         activityMonitor.addActivityChangeListener(activityChangeListener);
         captureHelper = new CaptureHelper(screenSize);
 
+        socketManager.start();
         videoTcpServer.start();
         gsmTcpServer.start();
     }
@@ -164,6 +165,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
 
         videoTcpServer.interrupt();
         gsmTcpServer.interrupt();
+        socketManager.stop();
         displayManager.unregisterDisplayListener(displayListener);
         super.onDestroy();
     }

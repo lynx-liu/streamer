@@ -10,18 +10,29 @@ public class SocketManager implements ISocketEvent {
     private final static String TAG = "SocketManager";
     private MyWebSocket webSocket;
     private static final int XRtcSignalingPort = 47996;
-    private static final SocketManager socketManager = new SocketManager();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
-    private SocketManager() {
+    public SocketManager() {
         if (webSocket == null) {
             webSocket = new MyWebSocket(XRtcSignalingPort, this);
+        }
+    }
+
+    public void start() {
+        if(webSocket!=null) {
             webSocket.start();
         }
     }
 
-    public static SocketManager getInstance() {
-        return socketManager;
+    public void stop() {
+        if(webSocket!=null) {
+            try {
+                webSocket.stop();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            webSocket = null;
+        }
     }
 
     @Override

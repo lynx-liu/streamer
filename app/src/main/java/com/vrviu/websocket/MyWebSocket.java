@@ -10,6 +10,7 @@ import org.java_websocket.server.WebSocketServer;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +22,7 @@ public class MyWebSocket extends WebSocketServer {
     private static final String charSet ="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     public MyWebSocket(int port, ISocketEvent event) {
-        super(new InetSocketAddress("127.0.0.1", port));
+        super(new InetSocketAddress((InetAddress) null, port));
         this.socketEvent = event;
     }
 
@@ -36,23 +37,25 @@ public class MyWebSocket extends WebSocketServer {
     }
 
     private boolean dispatchJoin(WebSocket conn, JSONObject msg) throws JSONException {
+        String join = JsonUtils.get(msg,"join",null);
+        if(join==null) return false;
+
         String uid = JsonUtils.get(msg,"uid",getRandomString(8));
         boolean disableEncryption = JsonUtils.get(msg,"disableEncryption",false);
         boolean enableAvUpbound = JsonUtils.get(msg,"enableAvUpbound",false);
         boolean disableSync = JsonUtils.get(msg,"disableSync",true);
         int clientSupportHevc = JsonUtils.get(msg,"clientSupportHevc",-1);
-        String join = JsonUtils.get(msg,"join",null);
-        if(join==null) return false;
 
         JSONObject joinObject = new JSONObject(join);
         String offer = JsonUtils.get(joinObject, "offer", null);
-        if(offer==null) return false;
 
-        JSONObject offerObject = new JSONObject(offer);
-        String sdp = JsonUtils.get(offerObject,"sdp",null);
-        if(sdp==null) return false;
-
-        String type = JsonUtils.get(offerObject,"type", "offer");
+        String sdp = null;
+        String type = null;
+        if(offer!=null) {
+            JSONObject offerObject = new JSONObject(offer);
+            sdp = JsonUtils.get(offerObject, "sdp", null);
+            type = JsonUtils.get(offerObject, "type", "offer");
+        }
         return socketEvent.onJoin(conn, uid, type, sdp, disableEncryption, disableSync, enableAvUpbound, clientSupportHevc);
     }
 
@@ -152,17 +155,15 @@ public class MyWebSocket extends WebSocketServer {
 
     @Override
     public void onMessage(WebSocket conn, String message) {
-        Log.d(TAG, message);
+        Log.d("llx", message);
 
         try {
             JSONObject msg = new JSONObject(message);
+            if(dispatchJoin(conn, msg))
+                return;
 
             String type = (String) msg.get("type");
             switch (type) {
-                case "join":
-                    dispatchJoin(conn, msg);
-                    break;
-
                 case "answer":
                     dispatchAnswer(conn, msg);
                     break;
@@ -185,6 +186,6 @@ public class MyWebSocket extends WebSocketServer {
 
     @Override
     public void onStart() {
-
+        Log.e("llx", "onStart");
     }
 }
