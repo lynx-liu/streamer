@@ -20,7 +20,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
                                                                     int maxFps, int bitrate, int minFps, jint codec, int profile,
                                                                     int frameInterval, int bitrateMode, int audioMimeType,
                                                                     int defaulQP, int maxQP, int minQP,
-                                                                    jstring _ip, jint videoPort, jint audioPort, jstring fileName);
+                                                                    jstring _ip, jint videoPort, jint audioPort, jboolean dump);
 
 JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEnv *env, jobject thiz, int width, int height,
                                                                            int bitrate, int fps, int frameInterval, int profile, int codec);
