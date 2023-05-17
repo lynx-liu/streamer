@@ -147,8 +147,16 @@ public class StreamerService extends AccessibilityService {
             activityMonitor = null;
         }
 
-        if(controlTcpClient!=null)
+        if(controlTcpClient!=null) {
             controlTcpClient.interrupt();
+            try {
+                controlTcpClient.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            controlTcpClient = null;
+        }
+
         videoTcpServer.interrupt();
         displayManager.unregisterDisplayListener(displayListener);
         super.onDestroy();
@@ -167,8 +175,15 @@ public class StreamerService extends AccessibilityService {
 
         @Override
         public void onDisplayChanged(int displayId) {
+            Point lastSize = new Point(screenSize);
             Display display = displayManager.getDisplay(0);
             display.getRealSize(screenSize);
+
+            if(screenSize.equals(lastSize) && refreshRate==(int)display.getRefreshRate()) {
+                Log.d("llx", "display is same");
+                return;
+            }
+
             refreshRate = (int) display.getRefreshRate();
 
             if(captureHelper!=null) {
@@ -206,6 +221,8 @@ public class StreamerService extends AccessibilityService {
                     if (eglRender != null) {
                         int fps = eglRender.getFps();
                         float sharp = eglRender.getSharp();
+                        eglRender.Release();
+
                         eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
                         surface = eglRender.getSurface();
                     }
@@ -277,13 +294,29 @@ public class StreamerService extends AccessibilityService {
                                       int defaulQP, int maxQP, int minQP, String fakeVideoPath) {
             boolean isGameMode = gameMode!=NOT_IN_GAME;
 
-            if(controlTcpClient!=null) controlTcpClient.interrupt();
+            if(controlTcpClient!=null) {
+                controlTcpClient.interrupt();
+                try {
+                    controlTcpClient.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                controlTcpClient = null;
+            }
+
             controlTcpClient = new ControlTcpClient(getApplicationContext(),lsIp,lsControlPort,isGameMode,downloadDir,packageName,activityMonitor,null);
             controlTcpClient.start();
             controlTcpClient.setDisplayRotation(screenSize);
             releaseStreaming();
 
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                if(width<height) {
+                    width+=height;
+                    height=width-height;
+                    width-=height;
+                }
+                width = Math.max(screenSize.x,screenSize.y)*height/Math.min(screenSize.x,screenSize.y);
+
                 orientation = orientationType;
                 if(screenSize.x< screenSize.y && orientation%2!=0) {
                     videoWidth = Math.min(width, height);
@@ -313,6 +346,11 @@ public class StreamerService extends AccessibilityService {
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, codec, profile,
                         idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, lsIp, lsVideoPort, lsAudioPort,
                         null);
+
+                if(eglRender != null) {
+                    eglRender.Release();
+                    eglRender = null;
+                }
 
                 if(sharp>0 || dynamicFps) {
                     eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, maxFps, mhandler);
@@ -347,8 +385,16 @@ public class StreamerService extends AccessibilityService {
 
         @Override
         public void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl) {
-            if(controlTcpClient!=null)
+            if(controlTcpClient!=null) {
                 controlTcpClient.interrupt();
+                try {
+                    controlTcpClient.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                controlTcpClient = null;
+            }
+
             mhandler.removeMessages(MSG_UPDATE_VIEW);
             releaseStreaming();
         }
@@ -367,6 +413,13 @@ public class StreamerService extends AccessibilityService {
                 if(width!=-1||height!=-1||(fps!=-1&&(eglRender==null||!eglRender.isDynamicFps()))||frameInterval!=-1||profile!=-1||codec!=-1||orientation!=-1) {
                     Log.d("llx","reconfigureEncode {"+(width!=-1?" width:"+width:"")+(height!=-1?" height:"+height:"")+(bitrate!=-1?" bitrate:"+bitrate:"")+(fps!=-1?" fps:"+fps:"")+(frameInterval!=-1?" frameInterval:"+frameInterval:"")+(profile!=-1?" profile:"+profile:"")+(orientation!=-1?" orientation:"+orientation:"")+(codec!=-1?" codec:"+codec:"")+" }");
                     if(width!=-1 && height!=-1) {
+                        if(width<height) {
+                            width+=height;
+                            height=width-height;
+                            width-=height;
+                        }
+                        width = Math.max(screenSize.x,screenSize.y)*height/Math.min(screenSize.x,screenSize.y);
+
                         if (screenSize.x < screenSize.y && orientation % 2 != 0) {
                             videoWidth = Math.min(width, height);
                             videoHeight = Math.max(width, height);
@@ -390,6 +443,8 @@ public class StreamerService extends AccessibilityService {
                     if(eglRender!=null) {
                         if(fps==-1) fps = eglRender.getFps();
                         float sharp = eglRender.getSharp();
+                        eglRender.Release();
+
                         eglRender = new EGLRender(surface, videoWidth, videoHeight, sharp, fps, mhandler);
                         surface = eglRender.getSurface();
                     }

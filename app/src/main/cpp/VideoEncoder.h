@@ -18,37 +18,23 @@
 #include <media/NdkMediaFormat.h>
 #include <mutex>
 
-#define REPEAT_FRAME_DELAY_US           50000 // repeat after 50ms
-
-#define NonIDR                          1
-#define IDR                             5
-#define SPS                             7
-
-const char PARAMETER_KEY_REQUEST_SYNC_FRAME[] = "request-sync";
-const char PARAMETER_KEY_VIDEO_BITRATE[] = "video-bitrate";
-
 inline int64_t systemnanotime();
 inline int32_t systemmilltime();
-
-#pragma pack(push)
-#pragma pack(1)
-struct VideoHeader {
-    uint16_t type = 0; //0=h264 1=h265
-    uint16_t keyframe = 0;
-    int64_t timestamp = 0;
-    uint32_t size = 0;
-};
-#pragma pack(pop)
 
 enum VideoType {
     AVC,
     HEVC
 };
 
-typedef struct ABuffer {
-    uint8_t*    data;
-    VideoHeader header;
-} ABuffer;
+#pragma pack(push)
+#pragma pack(1)
+struct VideoHeader {
+    uint16_t type = AVC;
+    uint16_t keyframe = 0;
+    int64_t timestamp = 0;
+    uint32_t size = 0;
+};
+#pragma pack(pop)
 
 typedef struct AMediaInfo {
     int32_t outIndex;
@@ -75,7 +61,7 @@ class VideoEncoder
 private:
     pthread_t encode_tid = 0;
     int m_sockfd = -1;
-    ABuffer spspps;
+    VideoHeader header;
 
     VideoParam videoParam;
     ANativeWindow *surface = NULL;
@@ -105,9 +91,7 @@ private:
     inline void notifyOutputAvailable(int32_t index, AMediaCodecBufferInfo *bufferInfo);
     inline void onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info);
     inline void onFormatChange(AMediaFormat *format);
-    inline void onH264Frame(uint8_t* bytes, size_t size, int64_t ts);
-    inline void onH265Frame(uint8_t* bytes, size_t size, int64_t ts);
-    inline void onEncodeFrame(uint8_t *bytes,size_t size,int maxFps,bool keyframe,int64_t ts) const;
+    inline void onEncodeFrame(uint8_t *bytes,size_t size,int32_t flags,int64_t ts);
 
     static int connectSocket(const char *ip, int port);
     static void* send_thread(void *arg);

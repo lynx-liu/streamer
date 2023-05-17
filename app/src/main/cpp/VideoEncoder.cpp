@@ -11,6 +11,14 @@
 #define NDK_DEBUG   0
 #define CALL_BACK   1
 
+#define COLOR_FormatSurface                 0x7F000789
+#define REPEAT_FRAME_DELAY_US               50000 // repeat after 50ms
+
+const char PARAMETER_KEY_REQUEST_SYNC_FRAME[] = "request-sync";
+const char PARAMETER_KEY_VIDEO_BITRATE[] = "video-bitrate";
+const char KEY_MAX_B_FRAMES[] = "max-bframes";
+const char KEY_PREPEND_HEADER_TO_SYNC_FRAMES[] = "prepend-sps-pps-to-idr-frames";
+
 inline int64_t systemnanotime() {
     timespec now{};
     clock_gettime(CLOCK_MONOTONIC, &now);
@@ -30,7 +38,6 @@ VideoEncoder::VideoEncoder()
     videoParam.videoType = AVC;
     mIsRecording = false;
     mIsSending = false;
-    memset(&spspps,0,sizeof(spspps));
 }
 
 VideoEncoder::~VideoEncoder()
@@ -106,11 +113,12 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, videoParam.maxFps);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, videoParam.frameInterval);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, REPEAT_FRAME_DELAY_US); // µs
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, 0x7F000789); //COLOR_FormatSurface
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, COLOR_FormatSurface);
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, videoParam.maxFps);
-    AMediaFormat_setInt32(videoFormat, "max-bframes", 0);//MediaFormat.KEY_MAX_B_FRAMES
+    AMediaFormat_setInt32(videoFormat, KEY_MAX_B_FRAMES, 0);
+    AMediaFormat_setInt32(videoFormat, KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 1);
 
-    if(videoParam.defaulQP==0 && videoParam.minQP==0 && videoParam.maxQP==0) {
+    if(videoParam.defaulQP!=0 || videoParam.minQP!=0 && videoParam.maxQP!=0) {
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i", videoParam.defaulQP);
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i-enable", 1);
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-qp-range.qp-i-min", videoParam.minQP);
@@ -232,6 +240,9 @@ inline void VideoEncoder::notifyOutputAvailable(int32_t index, AMediaCodecBuffer
     cond.notify_all();
 }
 
+long count = 0;
+long sum = 0;
+
 inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferInfo *info) {
     if(!mIsRecording) return;
 
@@ -241,11 +252,7 @@ inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferI
     size_t out_size = 0;
     uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
     if (info->size > 0 && info->presentationTimeUs > 0) {
-        if(videoParam.videoType==AVC) {
-            onH264Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
-        } else {
-            onH265Frame(outputBuffer+info->offset,info->size,info->presentationTimeUs);
-        }
+        onEncodeFrame(outputBuffer+info->offset, info->size, info->flags, info->presentationTimeUs);
 
         if(mMuxer) {
             AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
@@ -329,74 +336,14 @@ void* VideoEncoder::send_thread(void *arg) {
     return nullptr;
 }
 
-inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int frametype,bool keyframe,int64_t ts) const {
-    VideoHeader header;
-    header.type = ntohs(frametype);
-    header.keyframe = ntohs(keyframe);
+inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int32_t flags, int64_t ts) {
+    header.type = ntohs(videoParam.videoType);
+    header.keyframe = ntohs(flags);
     header.timestamp = ntohq(ts);
     header.size = ntohl(size);
 
     send(m_sockfd, &header, sizeof(header), 0);
     send(m_sockfd, bytes, size, 0);
-}
-
-inline void VideoEncoder::onH265Frame(uint8_t* bytes, size_t size, int64_t ts) {
-    int frametype=1;
-    int nalutype=(bytes[4]&0x7e)>>1;
-
-    if(nalutype==32){//vps sps pps
-        delete []spspps.data;
-        spspps.data = new uint8_t[size];
-        spspps.header.size = size;
-        memcpy(spspps.data,bytes,size);
-    } else if(nalutype == 19 || nalutype == 20) {//idr
-        auto* data = new uint8_t[spspps.header.size + size];
-        memcpy(data,spspps.data,spspps.header.size);
-        memcpy(data+spspps.header.size,bytes,size);
-        onEncodeFrame(data,spspps.header.size+size,frametype,true,ts);
-        delete [] data;
-    } else {
-        onEncodeFrame(bytes,size,frametype,false,ts);
-    }
-}
-
-inline void VideoEncoder::onH264Frame(uint8_t* bytes, size_t size, int64_t ts) {
-    int frametype=0;
-    int nalutype=bytes[4]&0x1f;
-    bool fixNalueType=false;
-    if(bytes[4]!=0x67){
-        //common-c just fit like 0x67,0x68,0x65,0x61
-        bytes[4]=(bytes[4]|0x60);
-        fixNalueType=true;
-    }
-
-    if(nalutype==NonIDR){
-        onEncodeFrame(bytes,size,frametype,false,ts);
-    } else if(nalutype==IDR){
-        auto* data = new uint8_t[spspps.header.size + size];
-        memcpy(data,spspps.data,spspps.header.size);
-        memcpy(data+spspps.header.size,bytes,size);
-        onEncodeFrame(data,spspps.header.size+size,frametype,true,ts);
-        delete [] data;
-    } else if(nalutype==SPS){
-        if(fixNalueType){
-            for (int i=5;i<size-5;++i){
-                if(bytes[i]==0
-                   &&bytes[i+1]==0
-                   &&bytes[i+2]==0
-                   &&bytes[i+3]==1
-                   &&(bytes[i+4]&0x1f)==8){
-                    bytes[i+4]=(bytes[i+4]|0x60);
-                    break;
-                }
-            }
-        }
-
-        delete []spspps.data;
-        spspps.data = new uint8_t[size];
-        spspps.header.size = size;
-        memcpy(spspps.data,bytes,size);
-    }
 }
 
 int VideoEncoder::connectSocket(const char *ip, int port) {
