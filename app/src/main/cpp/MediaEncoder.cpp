@@ -22,6 +22,12 @@ VideoEncoder *videoEncoder = new VideoEncoder();
 void _init(void) {
 }
 
+inline int32_t currentTimeMillis() {
+    timespec now{};
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (now.tv_sec * 1000000000LL + now.tv_nsec)/1000000;
+}
+
 jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期，加载jni的时候会自己调用
 {
     pthread_mutex_init(&mutex, NULL);
@@ -32,21 +38,18 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
                                                                     int maxFps, int bitrate, int minFps, jint codec, int profile,
                                                                     int frameInterval, int bitrateMode, int audioMimeType,
                                                                     int defaulQP, int maxQP, int minQP,
-                                                                    jstring _ip, jint videoPort, jint audioPort, jstring fileName) {
+                                                                    jstring _ip, jint videoPort, jint audioPort, jboolean dump) {
     pthread_mutex_lock(&mutex);
-    if(fileName!= nullptr) {
-        const char* filename = env->GetStringUTFChars(fileName, NULL);
-
-        if(filename) {
-            fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
-            if (!fd) {
-                LOGE("open media file failed-->%d", fd);
-            } else {
-                mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
-                AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
-            }
+    if(dump) {
+        char filename[NAME_MAX] = {0};
+        sprintf(filename,"/sdcard/DCIM/%d.mp4",currentTimeMillis());
+        fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
+        if (!fd) {
+            LOGE("open media file failed-->%d", fd);
+        } else {
+            mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
+            AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
         }
-        env->ReleaseStringUTFChars(fileName, filename);
     }
 
     const char* ip = env->GetStringUTFChars(_ip,NULL);
@@ -77,6 +80,11 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEn
         mMuxer = nullptr;
 
         if(fd) {
+            close(fd);
+            char filename[NAME_MAX] = {0};
+            sprintf(filename,"/sdcard/DCIM/%d.mp4",currentTimeMillis());
+            fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
+
             mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
             AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
         }

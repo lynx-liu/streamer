@@ -335,7 +335,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
 
             Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, codec, profile,
                     idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, lsIp, lsVideoPort, lsAudioPort,
-                    null);
+                    false);
             if(surface==null) {
                 Log.e("llx","surface is null");
                 return false;

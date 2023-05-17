@@ -11,6 +11,7 @@ import com.vrviu.opengl.gltext.TextRenderer;
 public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private EglWindow eglWindow;
     private TextureRender mTextureRender;
+    private HSBRender hsbRender;
     private TextRenderer mTextRenderer;
     private SurfaceTexture mSurfaceTexture;
     private long mIntervalTime = -1;
@@ -25,6 +26,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         surface.release();
 
         mTextureRender = new TextureRender(width, height, sharp);
+        hsbRender = new HSBRender(mTextureRender.getTextureId());
         mSurfaceTexture = new SurfaceTexture(mTextureRender.getTextureId());
         mSurfaceTexture.setDefaultBufferSize(width, height);
         mSurfaceTexture.setOnFrameAvailableListener(this, handler);
@@ -64,7 +66,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     }
 
     @Override
-    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+    public synchronized void onFrameAvailable(SurfaceTexture surfaceTexture) {
         if(mSurfaceTexture==null)
             return;
 
@@ -75,6 +77,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         if(currentTime-mLastRefreshTime>=mIntervalTime) {
             mLastRefreshTime = currentTime;
             mTextureRender.drawFrame();
+            if(hsbRender!=null) hsbRender.drawFrame();
             if(mTextRenderer!=null) {
                 mTextRenderer.drawText(String.valueOf(currentTime));
             }
@@ -83,14 +86,14 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         }
     }
 
-    public void stop() {
+    public synchronized void stop() {
         if(mSurfaceTexture!=null) {
             mSurfaceTexture.setOnFrameAvailableListener(null);
             mSurfaceTexture = null;
         }
     }
 
-    public void Release() {
+    public synchronized void Release() {
         eglWindow.Release();
     }
 }

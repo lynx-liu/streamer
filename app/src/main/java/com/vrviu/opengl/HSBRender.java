@@ -6,7 +6,7 @@ import android.opengl.Matrix;
 
 import java.nio.FloatBuffer;
 
-public  class TextureRender {
+public  class HSBRender {
     private static final int FLOAT_SIZE_BYTES = 4;
 
     private static final float[] FULL_RECTANGLE_COORDS = {
@@ -51,58 +51,53 @@ public  class TextureRender {
                 "precision mediump float;\n"+
                 "varying vec2 vTextureCoord;\n"+
                 "uniform samplerExternalOES uTexture;\n"+
-                "uniform vec2 mTextureSize;\n"+
-                "uniform float sharpLevel;\n"+
+                "uniform float uBrightness;\n" +
+                "uniform float uContrast;\n" +
+                "uniform float uSaturation;\n" +
                 "void main() {\n"+
-                "  if (vTextureCoord.x <= 0.5) {\n" +
-                "    float xx = float(mTextureSize.x);\n"+
-                "    float yy = float(mTextureSize.y);\n"+
-                "    vec2 offset0 = vec2(-1.0 / xx, -1.0 / yy);\n"+
-                "    vec2 offset1 = vec2(0.0 / xx, -1.0 / yy);\n"+
-                "    vec2 offset2 = vec2(1.0 / xx, -1.0 / yy);\n"+
-                "    vec2 offset3 = vec2(-1.0 / xx, 0.0 / yy);\n"+
-                "    vec2 offset4 = vec2(0.0 / xx, 0.0 / yy);\n"+
-                "    vec2 offset5 = vec2(1.0 / xx, 0.0 / yy);\n"+
-                "    vec2 offset6 = vec2(-1.0 / xx, 1.0 / yy);\n"+
-                "    vec2 offset7 = vec2(0.0 / xx, 1.0 / yy);\n"+
-                "    vec2 offset8 = vec2(1.0 / xx, 1.0 / yy);\n"+
-                "    vec4 cTemp0 = texture2D(uTexture, vTextureCoord.st + offset0.xy);\n"+
-                "    vec4 cTemp1 = texture2D(uTexture, vTextureCoord.st + offset1.xy);\n"+
-                "    vec4 cTemp2 = texture2D(uTexture, vTextureCoord.st + offset2.xy);\n"+
-                "    vec4 cTemp3 = texture2D(uTexture, vTextureCoord.st + offset3.xy);\n"+
-                "    vec4 cTemp4 = texture2D(uTexture, vTextureCoord.st + offset4.xy);\n"+
-                "    vec4 cTemp5 = texture2D(uTexture, vTextureCoord.st + offset5.xy);\n"+
-                "    vec4 cTemp6 = texture2D(uTexture, vTextureCoord.st + offset6.xy);\n"+
-                "    vec4 cTemp7 = texture2D(uTexture, vTextureCoord.st + offset7.xy);\n"+
-                "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord.st + offset8.xy);\n"+
-                "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp1+cTemp1+cTemp2+cTemp3+cTemp4+cTemp4+cTemp5+cTemp3+cTemp4+cTemp4+cTemp5+cTemp6+cTemp7+cTemp7+cTemp8)/16.0)*sharpLevel;\n"+
-                "    gl_FragColor = vec4(sum.r, sum.g, sum.b, 1.0);\n"+
-                "  } else {\n" +
-                "    gl_FragColor = texture2D(uTexture, vTextureCoord);\n" +
-                "  }\n" +
+                "   vec4 texColor = texture2D(uTexture, vTextureCoord);\n" +
+                "   if (vTextureCoord.x <= 0.5) {\n" +
+                "       texColor.rgb += uBrightness;\n" +
+                "       texColor.rgb = (texColor.rgb - 0.5) * max(uContrast, 0.0) + 0.5;\n" +
+                "       float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));\n" +
+                "       texColor.rgb = mix(vec3(luminance), texColor.rgb, uSaturation);\n" +
+                "   }\n" +
+                "   gl_FragColor = texColor;\n" +
                 "}\n";
 
     private int mProgram;
-    private int mTextureID;
     private int muMVPMatrixHandle;
     private int muSTMatrixHandle;
     private int maPositionHandle;
     private int maTextureHandle;
-    private int mSharpHandle;
-    private int mTextureSizeHandle;
-    private float mSharpLevel;
-    private FloatBuffer TEXTURE_SIZE;
+
+    private int mBrightnessHandle;
+    private float mBrightnessValue;
+    private int mContrastHandle;
+    private float mContrastValue;
+    private int mSaturationHandle;
+    private float mSaturationValue;
 
     private float[] mMVPMatrix = new float[16];
     private float[] mSTMatrix = new float[16];
 
-    public TextureRender(int width, int height, float sharpLevel) {
+    public HSBRender(int texture) {
+        this(texture, 0.0f,1.2f,1.2f);
+    }
+
+    /*
+    brightness：亮度调整参数，取值范围为[-1.0, 1.0]，其中-1.0表示将图像变暗，1.0表示将图像变亮，0.0表示不进行亮度调整。
+    contrast：对比度调整参数，取值范围为[0.0, +∞)，其中0.0表示将图像变成灰色，1.0表示不进行对比度调整，大于1.0表示增强对比度。
+    saturation：饱和度调整参数，取值范围为[0.0, 2.0]，其中0.0表示将图像变成灰色，1.0表示不进行饱和度调整，大于1.0表示增强饱和度，小于1.0表示降低饱和度。
+    */
+    public HSBRender(int texture, float brightness, float contrast, float saturation) {
         Matrix.setIdentityM(mSTMatrix, 0);
 
-        mSharpLevel = sharpLevel;
-        TEXTURE_SIZE = GlUtil.createFloatBuffer(new float[]{width,height});
+        mBrightnessValue = brightness;
+        mContrastValue = contrast;
+        mSaturationValue = saturation;
 
-        mTextureID = genTextures();
+        bindTexture(texture);
         mProgram = GlUtil.createProgram(VERTEX_SHADER, FRAGMENT_SHADER);
         if(mProgram!=0) {
             maPositionHandle = GLES20.glGetAttribLocation(mProgram, "aPosition");
@@ -110,25 +105,15 @@ public  class TextureRender {
             muMVPMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uMVPMatrix");
             muSTMatrixHandle = GLES20.glGetUniformLocation(mProgram, "uSTMatrix");
 
-            mSharpHandle = GLES20.glGetUniformLocation(mProgram, "sharpLevel");
-            mTextureSizeHandle = GLES20.glGetUniformLocation(mProgram, "mTextureSize");
+            mBrightnessHandle = GLES20.glGetUniformLocation(mProgram, "uBrightness");
+            mContrastHandle = GLES20.glGetUniformLocation(mProgram, "uContrast");
+            mSaturationHandle = GLES20.glGetUniformLocation(mProgram, "uSaturation");
         }
     }
 
-    public int genTextures() {
-        int[] texture = new int[] {0};
-        GLES20.glGenTextures(1, texture, 0);
+    public void bindTexture(int texture) {
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,texture[0]);
-        return texture[0];
-    }
-
-    public int getTextureId() {
-        return mTextureID;
-    }
-
-    public float getSharp() {
-        return mSharpLevel;
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES,texture);
     }
 
     public void drawFrame() {
@@ -141,8 +126,9 @@ public  class TextureRender {
         Matrix.setIdentityM(mMVPMatrix, 0);
         GLES20.glUniformMatrix4fv(muMVPMatrixHandle, 1, false, mMVPMatrix, 0);
         GLES20.glUniformMatrix4fv(muSTMatrixHandle, 1, false, mSTMatrix, 0);
-        GLES20.glUniform1f(mSharpHandle, mSharpLevel);
-        GLES20.glUniform2fv(mTextureSizeHandle, 1, TEXTURE_SIZE);
+        GLES20.glUniform1f(mBrightnessHandle, mBrightnessValue);
+        GLES20.glUniform1f(mContrastHandle, mContrastValue);
+        GLES20.glUniform1f(mSaturationHandle, mSaturationValue);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 
         GLES20.glDisableVertexAttribArray(maPositionHandle);
