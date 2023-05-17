@@ -13,6 +13,7 @@
 
 #define COLOR_FormatSurface                 0x7F000789
 #define REPEAT_FRAME_DELAY_US               50000 // repeat after 50ms
+#define AMEDIACODEC_BUFFER_FLAG_KEY_FRAME   1
 
 const char PARAMETER_KEY_REQUEST_SYNC_FRAME[] = "request-sync";
 const char PARAMETER_KEY_VIDEO_BITRATE[] = "video-bitrate";
@@ -38,6 +39,7 @@ VideoEncoder::VideoEncoder()
     videoParam.videoType = AVC;
     mIsRecording = false;
     mIsSending = false;
+    memset(&spspps,0,sizeof(spspps));
 }
 
 VideoEncoder::~VideoEncoder()
@@ -116,7 +118,7 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, COLOR_FormatSurface);
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, videoParam.maxFps);
     AMediaFormat_setInt32(videoFormat, KEY_MAX_B_FRAMES, 0);
-    AMediaFormat_setInt32(videoFormat, KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 1);
+    AMediaFormat_setInt32(videoFormat, KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 0);//disable sync frames, otherwise the mp4 will not be played
 
     if(videoParam.defaulQP!=0 || videoParam.minQP!=0 && videoParam.maxQP!=0) {
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i", videoParam.defaulQP);
@@ -337,13 +339,35 @@ void* VideoEncoder::send_thread(void *arg) {
 }
 
 inline void VideoEncoder::onEncodeFrame(uint8_t *bytes,size_t size,int32_t flags, int64_t ts) {
-    header.type = ntohs(videoParam.videoType);
-    header.keyframe = ntohs(flags);
-    header.timestamp = ntohq(ts);
-    header.size = ntohl(size);
+    switch (flags) {
+        case AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG:
+            delete[]spspps.data;
+            spspps.data = new uint8_t[size];
+            spspps.size = size;
+            memcpy(spspps.data, bytes, size);
+            break;
 
-    send(m_sockfd, &header, sizeof(header), 0);
-    send(m_sockfd, bytes, size, 0);
+        case AMEDIACODEC_BUFFER_FLAG_KEY_FRAME:
+            header.type = ntohs(videoParam.videoType);
+            header.keyframe = ntohs(flags);
+            header.timestamp = ntohq(ts);
+            header.size = ntohl(size+spspps.size);
+
+            send(m_sockfd, &header, sizeof(header), 0);
+            send(m_sockfd, spspps.data, spspps.size, 0);
+            send(m_sockfd, bytes, size, 0);
+            break;
+
+        default:
+            header.type = ntohs(videoParam.videoType);
+            header.keyframe = ntohs(flags);
+            header.timestamp = ntohq(ts);
+            header.size = ntohl(size);
+
+            send(m_sockfd, &header, sizeof(header), 0);
+            send(m_sockfd, bytes, size, 0);
+            break;
+    }
 }
 
 int VideoEncoder::connectSocket(const char *ip, int port) {

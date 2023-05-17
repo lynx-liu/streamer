@@ -36,6 +36,11 @@ struct VideoHeader {
 };
 #pragma pack(pop)
 
+typedef struct ABuffer {
+    uint8_t* data = NULL;
+    uint32_t size = 0;
+} ABuffer;
+
 typedef struct AMediaInfo {
     int32_t outIndex;
     AMediaCodecBufferInfo bufferInfo;
@@ -61,6 +66,7 @@ class VideoEncoder
 private:
     pthread_t encode_tid = 0;
     int m_sockfd = -1;
+    ABuffer spspps;
     VideoHeader header;
 
     VideoParam videoParam;

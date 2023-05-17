@@ -39,7 +39,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
                                                                     jstring _ip, jint videoPort, jint audioPort, jboolean dump) {
     if(dump) {
         char filename[NAME_MAX] = {0};
-        sprintf(filename,"/sdcard/%d.mp4",currentTimeMillis());
+        sprintf(filename,"/sdcard/DCIM/%d.mp4",currentTimeMillis());
         fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
         if (!fd) {
             LOGE("open media file failed-->%d", fd);
@@ -77,7 +77,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEn
         if(fd) {
             close(fd);
             char filename[NAME_MAX] = {0};
-            sprintf(filename,"/sdcard/%d.mp4",currentTimeMillis());
+            sprintf(filename,"/sdcard/DCIM/%d.mp4",currentTimeMillis());
             fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
 
             mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);

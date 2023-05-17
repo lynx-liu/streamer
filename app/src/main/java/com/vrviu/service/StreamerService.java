@@ -345,7 +345,7 @@ public class StreamerService extends AccessibilityService {
                 int framerate = dynamicFps?refreshRate:maxFps;
                 Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, codec, profile,
                         idrPeriod/maxFps, rateControlMode, audioType, defaulQP, maxQP, minQP, lsIp, lsVideoPort, lsAudioPort,
-                        null);
+                        false);
 
                 if(eglRender != null) {
                     eglRender.Release();
