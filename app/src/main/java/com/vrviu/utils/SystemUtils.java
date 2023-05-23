@@ -17,7 +17,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
+
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 public final class SystemUtils {
     public static String getProperty(final String key, final String defaultValue) {
@@ -189,6 +195,34 @@ public final class SystemUtils {
             return new String(buffer,"GB2312");
         } catch (Exception e) {
             Log.d("llx",e.toString());
+        }
+        return null;
+    }
+
+    public static String AESDecryptor(String encryptedText) {
+        return AESDecryptor(encryptedText, "u23vFWFslqqkLEZDm6fU3wRwzvx2QLQU");
+    }
+
+    public static String AESDecryptor(String encryptedText, String key) {
+        return AESDecryptor(encryptedText, key, "0123456789abcdef");
+    }
+
+    public static String AESDecryptor(String encryptedText, String key, String iv) {
+        try {
+            byte[] encryptedBytes = Base64.getDecoder().decode(encryptedText);// decode Base64
+
+            SecretKeySpec secretKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "AES");
+            IvParameterSpec ivParameterSpec = new IvParameterSpec(iv.getBytes(StandardCharsets.UTF_8));
+
+            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, ivParameterSpec);
+
+            byte[] decryptedBytes = cipher.doFinal(encryptedBytes);
+            String decryptedText = new String(decryptedBytes, StandardCharsets.UTF_8);
+            Log.d("llx", decryptedText);
+            return decryptedText;
+        } catch (Exception e) {
+            Log.e("llx",e.toString());
         }
         return null;
     }
