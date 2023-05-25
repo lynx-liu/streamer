@@ -2,6 +2,7 @@ package com.vrviu.opengl;
 
 import android.content.Context;
 import android.graphics.SurfaceTexture;
+import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.view.Surface;
@@ -12,6 +13,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private EglWindow eglWindow;
     private TextureRender mTextureRender;
     private HSBRender hsbRender;
+    private int mTextureID = -1;
     private TextRenderer mTextRenderer;
     private SurfaceTexture mSurfaceTexture;
     private long mIntervalTime = -1;
@@ -25,15 +27,22 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         eglWindow = new EglWindow(surface, width, height);
         surface.release();
 
-        mTextureRender = new TextureRender(width, height, sharp);
-        hsbRender = new HSBRender(mTextureRender.getTextureId());
-        mSurfaceTexture = new SurfaceTexture(mTextureRender.getTextureId());
+        mTextureID = genTextures();
+        mTextureRender = new TextureRender(mTextureID, width, height, sharp);
+        hsbRender = new HSBRender(mTextureID);
+        mSurfaceTexture = new SurfaceTexture(mTextureID);
         mSurfaceTexture.setDefaultBufferSize(width, height);
         mSurfaceTexture.setOnFrameAvailableListener(this, handler);
 
         if(showText) {
             mTextRenderer = new TextRenderer(context, width, height);
         }
+    }
+
+    private int genTextures() {
+        int[] texture = new int[] {0};
+        GLES20.glGenTextures(1, texture, 0);
+        return texture[0];
     }
 
     public Surface getSurface() {
@@ -91,6 +100,10 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
             mSurfaceTexture.setOnFrameAvailableListener(null);
             mSurfaceTexture = null;
         }
+
+        GLES20.glDeleteTextures(1, new int[]{mTextureID}, 0);
+        if(hsbRender!=null) hsbRender.release();
+        mTextureRender.release();
     }
 
     public synchronized void Release() {
