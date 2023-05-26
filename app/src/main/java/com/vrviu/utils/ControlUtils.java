@@ -1,7 +1,7 @@
 package com.vrviu.utils;
 
 import android.content.Context;
-import android.graphics.Point;
+import android.graphics.PointF;
 import android.hardware.input.InputManager;
 import android.os.SystemClock;
 import android.util.Log;
@@ -42,7 +42,7 @@ public final class ControlUtils  {
         }
     }
 
-    public boolean injectTouch(int action, final long pointerId, final Point point, final float pressure, final int buttons) {
+    public boolean injectTouch(int action, final long pointerId, final PointF point, final float pressure, final int buttons) {
         int pointerIndex = pointersState.getPointerIndex(pointerId,action==MotionEvent.ACTION_DOWN);
         if (pointerIndex < 0){
             return true;
@@ -74,7 +74,7 @@ public final class ControlUtils  {
         return injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 
-    public boolean injectTouchForMouse(final int action, final long lastDownTime, final long eventTime, final Point point) {
+    public boolean injectTouchForMouse(final int action, final long lastDownTime, final long eventTime, final PointF point) {
         MotionEvent.PointerProperties props = pointerProperties[0];
         props.clear();
         props.id = 0;
@@ -92,7 +92,7 @@ public final class ControlUtils  {
         return injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 
-    public boolean injectMouse(final int action, final long lastDownTime, final long eventTime, final Point point, final int buttons) {
+    public boolean injectMouse(final int action, final long lastDownTime, final long eventTime, final PointF point, final int buttons) {
         MotionEvent.PointerProperties props = pointerProperties[0];
         props.clear();
         props.id = 0;
@@ -110,7 +110,7 @@ public final class ControlUtils  {
         return injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 
-    public boolean injectScroll(final Point point, final long lastDownTime, final long eventTime, final int hScroll, final int vScroll) {
+    public boolean injectScroll(final PointF point, final long lastDownTime, final long eventTime, final int hScroll, final int vScroll) {
         MotionEvent.PointerProperties props = pointerProperties[0];
         props.clear();
         props.id = 0;

@@ -1,6 +1,7 @@
 package com.vrviu.utils;
 
 import android.graphics.Point;
+import android.graphics.PointF;
 
 public final class Pointer {
 
@@ -14,7 +15,7 @@ public final class Pointer {
      */
     private final int localId;
 
-    private Point point;
+    private PointF point;
     private float pressure;
     private boolean up;
 
@@ -31,11 +32,11 @@ public final class Pointer {
         return localId;
     }
 
-    public Point getPoint() {
+    public PointF getPoint() {
         return point;
     }
 
-    public void setPoint(Point point) {
+    public void setPoint(PointF point) {
         this.point = point;
     }
 

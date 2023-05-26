@@ -1,6 +1,6 @@
 package com.vrviu.utils;
 
-import android.graphics.Point;
+import android.graphics.PointF;
 import android.view.MotionEvent;
 
 import java.util.ArrayList;
@@ -88,7 +88,7 @@ public final class PointersState {
             // id 0 is reserved for mouse events
             props[i].id = pointer.getLocalId();
 
-            Point point = pointer.getPoint();
+            PointF point = pointer.getPoint();
             coords[i].x = point.x;
             coords[i].y = point.y;
             coords[i].pressure = pointer.getPressure();

@@ -7,6 +7,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.hardware.camera2.CameraManager;
 import android.media.AudioManager;
 import android.media.AudioRecordingConfiguration;
@@ -64,6 +65,7 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_MOUSE_MOVE =0x08;
     private static final int TOUCH_ABSOLUTE =0x09;
     private static final int PACKET_TYPE_KEYBOARD =0x0A;
+    private static final int PACKET_TYPE_TOUCH_EX=0x22;
     private static final int PACKET_TYPE_TOUCH=0x23;
     private static final int PACKET_TYPE_ANDROID_KEY=0x24;
     private static final int PACKET_TYPE_SENSOR_INFO=0x25;
@@ -110,7 +112,7 @@ public final class ControlTcpClient extends TcpClient{
     private DataInputStream dataInputStream;
     private DataOutputStream dataOutputStream;
 
-    private final Point lastPoint = new Point();
+    private final PointF lastPoint = new PointF();
     private boolean isRightButtonPress=false;
     private boolean isLeftButtonPress=false;
     private boolean isHoverEnter=false;
@@ -409,12 +411,26 @@ public final class ControlTcpClient extends TcpClient{
         }
     }
 
-    private boolean onTouch(final byte[] buf) {
+    private boolean onTouch(final byte[] buf, int packetLen) {
+        if(controlTs!=null && packetLen>=TouchPacketSize){
+            int index = packetLen-1;
+            long timestamp = ((buf[index--]& 0xFFL)<<56)|((buf[index--]&0xFFL)<<48)
+                    |((buf[index--]&0xFFL)<<40)|((buf[index--]&0xFFL)<<32)
+                    |((buf[index--]&0xFFL)<<24)|((buf[index--]&0xFFL)<<16)
+                    |((buf[index--]&0xFFL)<<8)|(buf[index--]&0xFFL);
+            controlTs.set(timestamp);
+        }
+
         int buttonIndex = buf[1];
         int action = buf[2];
         int absolute = buf[3];
-        int dltX = ((buf[4]&0xFF)<<8)|(buf[5]&0xFF);
-        int dltY = ((buf[6]&0xFF)<<8)|(buf[7]&0xFF);
+
+        float dltX = ((buf[4]&0xFF)<<8)|(buf[5]&0xFF);
+        float dltY = ((buf[6]&0xFF)<<8)|(buf[7]&0xFF);
+        if(packetLen>TouchPacketSize) {
+            dltX = Float.intBitsToFloat(((buf[4] & 0xFF) << 24) | ((buf[5] & 0xFF) << 16) | ((buf[6] & 0xFF) << 8) | (buf[7] & 0xFF));
+            dltY = Float.intBitsToFloat(((buf[8] & 0xFF) << 24) | ((buf[9] & 0xFF) << 16) | ((buf[10] & 0xFF) << 8) | (buf[11] & 0xFF));
+        }
 
         int touchType=buttonIndex&0xf0;
         if(touchType==0x90&&!inputModeManager.isActivityIndex()){
@@ -437,13 +453,13 @@ public final class ControlTcpClient extends TcpClient{
                 return true;//TOUCH状态错误,丢弃
         }
 
-        Point point=pointN2L(dltX,dltY);
+        PointF point=pointN2L(dltX,dltY);
         if(absolute== TOUCH_ABSOLUTE){
             lastPoint.set(point.x,point.y);
         }else if(absolute== TOUCH_RELATIVE){
             lastPoint.offset(point.x,point.y);
         }
-        return controlUtils.injectTouch(action,buttonIndex&0x0f,new Point(lastPoint),1.0f,0);
+        return controlUtils.injectTouch(action,buttonIndex&0x0f,new PointF(lastPoint.x,lastPoint.y),1.0f,0);
     }
 
     private void onMouseDown(final int button) {
@@ -501,7 +517,7 @@ public final class ControlTcpClient extends TcpClient{
         int magic= ((buf[3]&0xFF)<<24)|((buf[2]&0xFF)<<16)|((buf[1]&0xFF)<<8)|(buf[0]&0xFF);
         int dltX = ((buf[4]&0xFF)<<8)|(buf[5]&0xFF);
         int dltY = ((buf[6]&0xFF)<<8)|(buf[7]&0xFF);
-        Point point=pointN2L(dltX,dltY);
+        PointF point=pointN2L(dltX,dltY);
 
         if(magic== TOUCH_ABSOLUTE){
             lastPoint.set(point.x,point.y);
@@ -653,15 +669,9 @@ public final class ControlTcpClient extends TcpClient{
         System.arraycopy(buffer, 8, object, 0, object.length);
 
         switch (packetType) {
+            case PACKET_TYPE_TOUCH_EX:
             case PACKET_TYPE_TOUCH:
-                if(controlTs!=null && packetLen==TouchPacketSize){
-                    long timestamp = ((object[12]& 0xFFL)<<56)|((object[13]& 0xFFL)<<48)
-                            |((object[14]&0xFFL)<<40)|((object[15]&0xFFL)<<32)
-                            |((object[16]&0xFFL)<<24)|((object[17]&0xFFL)<<16)
-                            |((object[18]&0xFFL)<<8)|(object[19]&0xFFL);
-                    controlTs.set(timestamp);
-                }
-                onTouch(object);
+                onTouch(object,packetLen);
                 break;
 
             case PACKET_TYPE_ANDROID_KEY:
@@ -783,8 +793,8 @@ public final class ControlTcpClient extends TcpClient{
         }
     }
 
-    private Point pointN2L(int x, int y){
-        return new Point((x*screenSize.x)>>16,(y*screenSize.y)>>16);
+    private PointF pointN2L(float x, float y){
+        return new PointF(x*screenSize.x/65535,y*screenSize.y/65535);
     }
 
     private void sendRotationChanged(byte rotation) {

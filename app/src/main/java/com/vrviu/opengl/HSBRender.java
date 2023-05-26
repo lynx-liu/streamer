@@ -44,7 +44,7 @@ public  class HSBRender {
                 "uniform float uSaturation;\n" +
                 "void main() {\n"+
                 "   vec4 texColor = texture2D(uTexture, vTextureCoord);\n" +
-                "   if (vTextureCoord.y > 0.5) {\n" +
+                "   if (vTextureCoord.x <= 0.5) {\n" +
                 "       texColor.rgb += uBrightness;\n" +
                 "       texColor.rgb = (texColor.rgb - 0.5) * max(uContrast, 0.0) + 0.5;\n" +
                 "       float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));\n" +
