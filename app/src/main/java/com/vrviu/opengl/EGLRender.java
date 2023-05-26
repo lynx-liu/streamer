@@ -5,6 +5,7 @@ import android.graphics.SurfaceTexture;
 import android.opengl.GLES20;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.util.Log;
 import android.view.Surface;
 
 import com.vrviu.opengl.gltext.TextRenderer;
@@ -19,22 +20,35 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private long mIntervalTime = -1;
     private long mLastRefreshTime = -1;
     private int fps = -1;
+    private RenderConfig config;
     private static final float radio = 0.8f;
 
-    public EGLRender(Context context, Surface surface, int width, int height, float sharp, int maxFps, boolean showText, Handler handler) {
+    public EGLRender(Context context, Surface surface, int width, int height, RenderConfig config, int maxFps, Handler handler) {
         fps = maxFps;
-        if(maxFps>0) mIntervalTime = (long) (1000/maxFps*radio);
+        this.config = config;
+
+        if(fps>0) mIntervalTime = (long) (1000/fps*radio);
         eglWindow = new EglWindow(surface, width, height);
         surface.release();
 
         mTextureID = genTextures();
-        mTextureRender = new TextureRender(mTextureID, width, height, sharp);
-        hsbRender = new HSBRender(mTextureID);
         mSurfaceTexture = new SurfaceTexture(mTextureID);
         mSurfaceTexture.setDefaultBufferSize(width, height);
         mSurfaceTexture.setOnFrameAvailableListener(this, handler);
 
-        if(showText) {
+        if(config.sharp>0) {
+            mTextureRender = new TextureRender(mTextureID, width, height, config.sharp);
+        }
+
+        if(mTextureRender==null || config.contrast!=0 || config.brightness!=0 || config.saturation!=0) {
+            float brightness = config.brightness/100.0f;
+            float contrast = config.contrast/100.0f+1.0f;
+            float saturation = config.saturation/100.0f+1.0f;
+            Log.d("llx","B: "+brightness+", C: "+contrast+", S: "+saturation);
+            hsbRender = new HSBRender(mTextureID,brightness,contrast,saturation);
+        }
+
+        if(config.showText) {
             mTextRenderer = new TextRenderer(context, width, height);
         }
     }
@@ -49,21 +63,21 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         return new Surface(mSurfaceTexture);
     }
 
-    public boolean isShowText() {
-        return mTextRenderer!=null;
+    public RenderConfig getConfig() {
+        return config;
     }
 
-    public float getSharp() {
-        return mTextureRender.getSharp();
-    }
+    public boolean setMaxFps(int maxFps) {
+        if(!config.dynamicFps)
+            return false;
 
-    public void setMaxFps(int maxFps) {
         fps = maxFps;
         if(maxFps>0) {
             mIntervalTime = (long) (1000/maxFps*radio);
         } else {
             mIntervalTime = -1;
         }
+        return true;
     }
 
     public int getFps() {
@@ -71,7 +85,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     }
 
     public boolean isDynamicFps() {
-        return mIntervalTime>0;
+        return config.dynamicFps;
     }
 
     @Override
@@ -85,11 +99,13 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         long currentTime = System.currentTimeMillis();
         if(currentTime-mLastRefreshTime>=mIntervalTime) {
             mLastRefreshTime = currentTime;
-            mTextureRender.drawFrame();
+
+            if(mTextureRender!=null) mTextureRender.drawFrame();
             if(hsbRender!=null) hsbRender.drawFrame();
             if(mTextRenderer!=null) {
                 mTextRenderer.drawText(String.valueOf(currentTime));
             }
+
             eglWindow.setPresentationTime(SystemClock.elapsedRealtimeNanos());
             eglWindow.swapBuffers();
         }
@@ -101,12 +117,24 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
             mSurfaceTexture = null;
         }
 
-        GLES20.glDeleteTextures(1, new int[]{mTextureID}, 0);
-        if(hsbRender!=null) hsbRender.release();
-        mTextureRender.release();
+        if(mTextureID!=-1) {
+            GLES20.glDeleteTextures(1, new int[]{mTextureID}, 0);
+            mTextureID = -1;
+        }
+
+        if(hsbRender!=null) {
+            hsbRender.release();
+            hsbRender = null;
+        }
+
+        if(mTextureRender!=null) {
+            mTextureRender.release();
+            mTextureRender = null;
+        }
     }
 
     public synchronized void Release() {
+        stop();
         eglWindow.Release();
     }
 }

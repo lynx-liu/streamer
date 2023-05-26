@@ -65,13 +65,9 @@ public  class HSBRender {
     private int mSaturationHandle;
     private float mSaturationValue;
 
-    public HSBRender(int textureId) {
-        this(textureId,0.0f,1.2f,1.2f);
-    }
-
     /*
     brightness：亮度调整参数，取值范围为[-1.0, 1.0]，其中-1.0表示将图像变暗，1.0表示将图像变亮，0.0表示不进行亮度调整。
-    contrast：对比度调整参数，取值范围为[0.0, +∞)，其中0.0表示将图像变成灰色，1.0表示不进行对比度调整，大于1.0表示增强对比度。
+    contrast：对比度调整参数，取值范围为[0.0, 2.0]，其中0.0表示将图像变成灰色，1.0表示不进行对比度调整，大于1.0表示增强对比度。
     saturation：饱和度调整参数，取值范围为[0.0, 2.0]，其中0.0表示将图像变成灰色，1.0表示不进行饱和度调整，大于1.0表示增强饱和度，小于1.0表示降低饱和度。
     */
     public HSBRender(int textureId, float brightness, float contrast, float saturation) {
@@ -98,7 +94,7 @@ public  class HSBRender {
     public void drawFrame() {
         GLES20.glUseProgram(mProgram);
         GLES20.glEnable(GLES20.GL_BLEND);
-        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
         GLES20.glVertexAttribPointer(maPositionHandle, 2, GLES20.GL_FLOAT, false, 2*FLOAT_SIZE_BYTES, FULL_RECTANGLE_BUF);
         GLES20.glEnableVertexAttribArray(maPositionHandle);

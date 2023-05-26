@@ -3,6 +3,7 @@ package com.vrviu.net;
 import android.util.Log;
 
 import com.vrviu.manager.SurfaceFlingerHelper;
+import com.vrviu.opengl.RenderConfig;
 import com.vrviu.utils.JsonUtils;
 
 import org.json.JSONObject;
@@ -35,16 +36,11 @@ public class VideoTcpServer extends TcpServer {
     private static SurfaceFlingerHelper surfaceFlingerHelper = null;
 
     public interface Callback {
-        boolean startStreaming(String flowId, String lsIp, boolean tcp,
-                                               int lsVideoPort, int lsAudioPort, int lsControlPort,
-                                               int codec, String videoCodecProfile, int idrPeriod,
-                                               int maxFps, int minFps, boolean dynamicFps, int width, int height,
-                                               int bitrate, int orientationType, int enableSEI,
-                                               int rateControlMode, int gameMode,
-                                               String packageName, String downloadDir,
-                                               float sharp, boolean showText, int audioType,
-                                               int defaulQP, int maxQP, int minQP,
-                                               String fakeVideoPath);
+        boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort,
+                               int codec, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height,
+                               int bitrate, int orientationType, int enableSEI, int rateControlMode,int gameMode, String packageName,
+                               String downloadDir, RenderConfig config, int audioType, int defaulQP, int maxQP, int minQP,
+                               String fakeVideoPath);
 
         void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl);
         void requestIdrFrame();
@@ -74,6 +70,7 @@ public class VideoTcpServer extends TcpServer {
     private boolean onStartStreaming(final String jsonString) {
         Log.d("llx",jsonString);
         try {
+            RenderConfig renderConfig = new RenderConfig();
             JSONObject jsonObject = new JSONObject(jsonString);
             String flowId = JsonUtils.get(jsonObject, "flowId", "");
             String lsIp = JsonUtils.get(jsonObject, "lsIp", "10.0.2.2");
@@ -86,7 +83,7 @@ public class VideoTcpServer extends TcpServer {
             int idrPeriod = JsonUtils.get(jsonObject, "idrPeriod", 3600);
             int maxFps = JsonUtils.get(jsonObject, "maxFps", 30);
             int minFps = JsonUtils.get(jsonObject, "minFps", 0);
-            boolean dynamicFps = JsonUtils.get(jsonObject, "dynamicFps", 0)!=0;
+            renderConfig.dynamicFps = JsonUtils.get(jsonObject, "dynamicFps", 0)!=0;
             int width = JsonUtils.get(jsonObject, "width", 1280);
             int height = JsonUtils.get(jsonObject, "height", 720);
             int bitrate = JsonUtils.get(jsonObject, "bitrate", 4096);
@@ -96,12 +93,15 @@ public class VideoTcpServer extends TcpServer {
             int gameMode = JsonUtils.get(jsonObject, "gameMode", 0);
             String packageName = JsonUtils.get(jsonObject, "packageName", null);
             String downloadDir = JsonUtils.get(jsonObject, "downloadDir", null);
-            float sharp = (float) JsonUtils.get(jsonObject, "sharp",0.0);
-            boolean showText = JsonUtils.get(jsonObject, "showText", 0)!=0;
+            renderConfig.sharp = (float) JsonUtils.get(jsonObject, "sharp",0.0);
+            renderConfig.brightness = JsonUtils.get(jsonObject, "brightness", 0);
+            renderConfig.contrast = JsonUtils.get(jsonObject, "contrast", 0);
+            renderConfig.saturation = JsonUtils.get(jsonObject, "saturation", 0);
+            renderConfig.showText = JsonUtils.get(jsonObject, "showText", 0)!=0;
             int audioType = JsonUtils.get(jsonObject, "audioType", 0);
-            int defaulQP = JsonUtils.get(jsonObject, "defaulQP", 36);
-            int maxQP = JsonUtils.get(jsonObject, "maxQP", 42);
-            int minQP = JsonUtils.get(jsonObject, "minQP", 24);
+            int defaulQP = JsonUtils.get(jsonObject, "defaulQP", 0);
+            int maxQP = JsonUtils.get(jsonObject, "maxQP", 0);
+            int minQP = JsonUtils.get(jsonObject, "minQP", 0);
             String fakeVideoPath = JsonUtils.get(jsonObject, "fakeVideoPath", null);
 
             String viewName = JsonUtils.get(jsonObject,"viewName",null);
@@ -110,20 +110,16 @@ public class VideoTcpServer extends TcpServer {
                     surfaceFlingerHelper.interrupt();
                     surfaceFlingerHelper = null;
                 }
-                surfaceFlingerHelper = new SurfaceFlingerHelper(viewName, new SurfaceFlingerHelper.onFpsListener() {
-                    @Override
-                    public boolean onFps(byte fps) {
-                        Log.d("llx","fps:"+fps);
-                        reportFps(fps);
-                        return false;
-                    }
+                surfaceFlingerHelper = new SurfaceFlingerHelper(viewName, fps -> {
+                    Log.d("llx","fps:"+fps);
+                    reportFps(fps);
+                    return false;
                 });
             }
 
             return mCallback.startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
-                    codec,videoCodecProfile,idrPeriod,maxFps,minFps,dynamicFps,width,height,bitrate,orientationType,
-                    enableSEI,rateControlMode,gameMode,packageName,downloadDir,sharp,showText,audioType,defaulQP,maxQP,minQP,
-                    fakeVideoPath);
+                    codec,videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType, enableSEI,
+                    rateControlMode,gameMode,packageName,downloadDir,renderConfig,audioType,defaulQP,maxQP,minQP,fakeVideoPath);
         } catch (Exception e) {
             e.printStackTrace();
         }

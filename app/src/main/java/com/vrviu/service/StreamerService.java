@@ -20,6 +20,7 @@ import com.vrviu.manager.CaptureHelper;
 import com.vrviu.manager.GameHelper;
 import com.vrviu.net.GsmTcpServer;
 import com.vrviu.opengl.EGLRender;
+import com.vrviu.opengl.RenderConfig;
 import com.vrviu.streamer.BuildConfig;
 import com.vrviu.net.ControlTcpClient;
 import com.vrviu.net.VideoTcpServer;
@@ -229,11 +230,10 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
 
                     if (eglRender != null) {
                         int fps = eglRender.getFps();
-                        float sharp = eglRender.getSharp();
-                        boolean showText = eglRender.isShowText();
+                        RenderConfig config = eglRender.getConfig();
                         eglRender.Release();
 
-                        eglRender = new EGLRender(getApplicationContext(), surface, videoWidth, videoHeight, sharp, fps, showText, mhandler);
+                        eglRender = new EGLRender(getApplicationContext(), surface, videoWidth, videoHeight, config, fps, mhandler);
                         surface = eglRender.getSurface();
                     }
 
@@ -272,10 +272,10 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
 
     @Override
     public boolean startStreaming(String flowId, String lsIp, boolean tcp, int lsVideoPort, int lsAudioPort, int lsControlPort,
-                                  int codec, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, boolean dynamicFps,
-                                  int width, int height, int bitrate, int orientationType, int enableSEI, int rateControlMode,
-                                  int gameMode, String packageName, String downloadDir, float sharp, boolean showText, int audioType,
-                                  int defaulQP, int maxQP, int minQP, String fakeVideoPath) {
+                                  int codec, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height,
+                                  int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName,
+                                  String downloadDir, RenderConfig renderConfig, int audioType, int defaulQP, int maxQP, int minQP,
+                                  String fakeVideoPath) {
         boolean isGameMode = gameMode!=NOT_IN_GAME;
 
         if(controlTcpClient!=null) {
@@ -326,7 +326,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
             videoHeight &= 0xFFFC;
 
             int profile = getProfile(videoCodecProfile);
-            int framerate = dynamicFps?refreshRate:maxFps;
+            int framerate = renderConfig.dynamicFps?refreshRate:maxFps;
             if(eglRender!=null) eglRender.stop();
 
             Surface surface = mediaEncoder.init(videoWidth, videoHeight, framerate, bitrate * 1000, minFps, codec, profile,
@@ -342,8 +342,8 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
                 eglRender = null;
             }
 
-            if(sharp>0 || dynamicFps || showText) {
-                eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, maxFps, showText, mhandler);
+            if(renderConfig.needRender()) {
+                eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, renderConfig, maxFps, mhandler);
                 surface = eglRender.getSurface();
             }
 
@@ -437,10 +437,9 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
                 }
 
                 if(eglRender!=null) {
-                    float sharp = eglRender.getSharp();
-                    boolean showText = eglRender.isShowText();
+                    RenderConfig renderConfig = eglRender.getConfig();
                     eglRender.Release();
-                    eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, sharp, fps, showText, mhandler);
+                    eglRender = new EGLRender(getApplicationContext(),surface, videoWidth, videoHeight, renderConfig, fps, mhandler);
                     surface = eglRender.getSurface();
                 }
 

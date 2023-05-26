@@ -97,14 +97,10 @@ public  class TextureRender {
         GLES20.glDeleteProgram(mProgram);
     }
 
-    public float getSharp() {
-        return mSharpLevel;
-    }
-
     public void drawFrame() {
         GLES20.glUseProgram(mProgram);
         GLES20.glEnable(GLES20.GL_BLEND);
-        GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
+        GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);
 
         GLES20.glVertexAttribPointer(maPositionHandle, 2, GLES20.GL_FLOAT, false, 2*FLOAT_SIZE_BYTES, FULL_RECTANGLE_BUF);
         GLES20.glEnableVertexAttribArray(maPositionHandle);
