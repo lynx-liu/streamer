@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.opengl.GLES20;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.util.Log;
 import android.view.Surface;
 
@@ -24,8 +23,10 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private static final float radio = 0.8f;
 
     public EGLRender(Context context, Surface surface, int width, int height, RenderConfig config, int maxFps, Handler handler) {
-        fps = maxFps;
         this.config = config;
+        if(config.dynamicFps)
+            fps = maxFps;
+        else fps = -1;
 
         if(fps>0) mIntervalTime = (long) (1000/fps*radio);
         eglWindow = new EglWindow(surface, width, height);
@@ -106,7 +107,7 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
                 mTextRenderer.drawText(String.valueOf(currentTime));
             }
 
-            eglWindow.setPresentationTime(SystemClock.elapsedRealtimeNanos());
+            eglWindow.setPresentationTime(mSurfaceTexture.getTimestamp());
             eglWindow.swapBuffers();
         }
     }

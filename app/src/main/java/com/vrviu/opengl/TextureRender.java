@@ -46,15 +46,15 @@ public  class TextureRender {
                 "    vec2 offset1 = vec2(0.0, 1.0) / mTextureSize;\n"+
                 "    vec2 offset2 = vec2(-1.0, 1.0) / mTextureSize;\n"+
                 "    vec2 offset3 = vec2(1.0, 0.0) / mTextureSize;\n"+
-                "    vec4 cTemp0 = texture2D(uTexture, vTextureCoord.st + offset0);\n"+
-                "    vec4 cTemp1 = texture2D(uTexture, vTextureCoord.st + offset1);\n"+
-                "    vec4 cTemp2 = texture2D(uTexture, vTextureCoord.st + offset2);\n"+
-                "    vec4 cTemp3 = texture2D(uTexture, vTextureCoord.st + offset3);\n"+
-                "    vec4 cTemp4 = texture2D(uTexture, vTextureCoord.st);\n"+
-                "    vec4 cTemp5 = texture2D(uTexture, vTextureCoord.st - offset3);\n"+
-                "    vec4 cTemp6 = texture2D(uTexture, vTextureCoord.st - offset2);\n"+
-                "    vec4 cTemp7 = texture2D(uTexture, vTextureCoord.st - offset1);\n"+
-                "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord.st - offset0);\n"+
+                "    vec4 cTemp0 = texture2D(uTexture, vTextureCoord + offset0);\n"+
+                "    vec4 cTemp1 = texture2D(uTexture, vTextureCoord + offset1);\n"+
+                "    vec4 cTemp2 = texture2D(uTexture, vTextureCoord + offset2);\n"+
+                "    vec4 cTemp3 = texture2D(uTexture, vTextureCoord + offset3);\n"+
+                "    vec4 cTemp4 = texture2D(uTexture, vTextureCoord);\n"+
+                "    vec4 cTemp5 = texture2D(uTexture, vTextureCoord - offset3);\n"+
+                "    vec4 cTemp6 = texture2D(uTexture, vTextureCoord - offset2);\n"+
+                "    vec4 cTemp7 = texture2D(uTexture, vTextureCoord - offset1);\n"+
+                "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord - offset0);\n"+
                 "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp2+cTemp6+cTemp8+(cTemp1+cTemp3+cTemp5+cTemp7)*2.0+cTemp4*4.0)/16.0)*sharpLevel;\n"+
                 "    gl_FragColor = vec4(sum.rgb, 1.0);\n"+
                 "}\n";
