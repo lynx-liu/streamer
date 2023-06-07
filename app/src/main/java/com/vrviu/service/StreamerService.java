@@ -75,20 +75,29 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
 
         activityMonitor = new ActivityMonitor(getApplicationContext(), mhandler);
         activityMonitor.addActivityChangeListener(activityChangeListener);
-        captureHelper = new CaptureHelper(screenSize);
 
         videoTcpServer.start();
         gsmTcpServer.start();
     }
 
+    private void createCaptureHelper(String packageName) {
+        gameHelper = new GameHelper(sceneChangeListener);
+        if(gameHelper.loadConfig("/data/local/tmp/GameHelper/GameHelper.json", packageName)) {
+            if(captureHelper==null) captureHelper = new CaptureHelper(screenSize);
+            gameHelper.setCaptureHelper(captureHelper);
+            gameHelper.start();
+        }
+    }
+
     ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
         @Override
         public void onActivityChanged(ComponentName componentName) {
+            String packageName = componentName.getPackageName();
             if(gameHelper==null) {
-                gameHelper = new GameHelper(captureHelper,componentName.getPackageName(), sceneChangeListener);
-            } else if(!gameHelper.getPackageName().equals(componentName.getPackageName())) {
+                createCaptureHelper(packageName);
+            } else if(!gameHelper.getPackageName().equals(packageName)) {
                 gameHelper.interrupt();
-                gameHelper = new GameHelper(captureHelper,componentName.getPackageName(), sceneChangeListener);
+                createCaptureHelper(packageName);
             }
         }
     };
@@ -193,12 +202,10 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
 
             if(captureHelper!=null) {
                 captureHelper.Release();
-                captureHelper = null;
-            }
-            captureHelper = new CaptureHelper(screenSize);
-
-            if(gameHelper != null) {
-                gameHelper.setCaptureHelper(captureHelper);
+                captureHelper = new CaptureHelper(screenSize);
+                if(gameHelper != null) {
+                    gameHelper.setCaptureHelper(captureHelper);
+                }
             }
 
             if(controlTcpClient!=null) {

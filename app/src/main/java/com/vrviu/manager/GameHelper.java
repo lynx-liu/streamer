@@ -28,17 +28,9 @@ public class GameHelper extends Thread{
         void onSceneChanged(int report);
     }
 
-    public GameHelper(CaptureHelper captureHelper, String packageName, onSceneChangeListener listener) {
+    public GameHelper(onSceneChangeListener listener) {
         setName(getClass().getSimpleName());
-
         mListener = listener;
-        this.packageName = packageName;
-        if(loadConfig("/data/local/tmp/GameHelper/GameHelper.json", packageName)) {
-            this.captureHelper = captureHelper;
-            screenSize = captureHelper.getScreenSize();
-            eventArray = getGameinfo(screenSize.x,screenSize.y);
-            start();
-        }
     }
 
     public String getPackageName() {
@@ -52,7 +44,8 @@ public class GameHelper extends Thread{
         sceneDetect = null;
     }
 
-    private boolean loadConfig(String jsonFile, String packageName) {
+    public boolean loadConfig(String jsonFile, String packageName) {
+        this.packageName = packageName;
         try {
             String jsonString = SystemUtils.read(jsonFile);
             if(jsonString==null) return false;
@@ -152,6 +145,7 @@ public class GameHelper extends Thread{
             int tryCount = JsonUtils.get(eventObject, "retry", -1);
 
             if(sceneDetect != null) {
+                if(captureHelper==null) continue;
                 byte[] buffer = captureHelper.screenCap(null);
                 if(buffer==null) continue;
 
