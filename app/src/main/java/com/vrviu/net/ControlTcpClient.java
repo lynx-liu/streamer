@@ -1,9 +1,7 @@
 package com.vrviu.net;
 
-import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
@@ -21,6 +19,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.widget.Toast;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -49,6 +48,7 @@ import static android.view.KeyEvent.META_SHIFT_ON;
 
 import com.vrviu.manager.ActivityMonitor;
 import com.vrviu.manager.InputModeManager;
+import com.vrviu.streamer.R;
 import com.vrviu.utils.ControlUtils;
 import com.vrviu.utils.SystemUtils;
 
@@ -187,6 +187,10 @@ public final class ControlTcpClient extends TcpClient{
 
                     case Intent.ACTION_CHOOSER:
                         break;
+
+                    case Intent.ACTION_VIEW:
+                        handler.post(() -> Toast.makeText(mContext, R.string.disable_browser,Toast.LENGTH_SHORT).show());
+                        return false;
 
                     case ActivityMonitor.ACTION_REQUEST_PERMISSIONS:
                         new Thread(() -> sendSensorAsk(new byte[]{SENSOR_TYPE_GPS})).start();

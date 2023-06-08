@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">stremer</string>
+    <string name="disable_browser">出于安全考虑，禁止使用浏览器</string>
 </resources>
