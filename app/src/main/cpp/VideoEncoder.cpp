@@ -265,7 +265,7 @@ inline void VideoEncoder::onOutputAvailable(int32_t outIndex, AMediaCodecBufferI
     size_t out_size = 0;
     uint8_t *outputBuffer = AMediaCodec_getOutputBuffer(videoCodec, outIndex, &out_size);
     if (info->size > 0 && info->presentationTimeUs > 0) {
-        onEncodeFrame(outputBuffer+info->offset, info->size, info->flags, info->presentationTimeUs);
+        onEncodeFrame(outputBuffer+info->offset, info->size, info->flags, info->presentationTimeUs/1000);
 
         if(mMuxer) {
             AMediaMuxer_writeSampleData(mMuxer, mVideoTrack, outputBuffer, info);
