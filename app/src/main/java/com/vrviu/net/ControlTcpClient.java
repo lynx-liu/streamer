@@ -65,6 +65,7 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_MOUSE_MOVE =0x08;
     private static final int TOUCH_ABSOLUTE =0x09;
     private static final int PACKET_TYPE_KEYBOARD =0x0A;
+    private static final int PACKET_TYPE_MULTITOUCH = 0x21;
     private static final int PACKET_TYPE_TOUCH_EX=0x22;
     private static final int PACKET_TYPE_TOUCH=0x23;
     private static final int PACKET_TYPE_ANDROID_KEY=0x24;
@@ -466,6 +467,58 @@ public final class ControlTcpClient extends TcpClient{
         return controlUtils.injectTouch(action,buttonIndex&0x0f,new PointF(lastPoint.x,lastPoint.y),1.0f,0);
     }
 
+    private void onMultiTouch(final byte[] buf, int packetLen) {
+        if(controlTs!=null && packetLen>=TouchPacketSize){
+            int index = packetLen-1;
+            long timestamp = ((buf[index--]& 0xFFL)<<56)|((buf[index--]&0xFFL)<<48)
+                    |((buf[index--]&0xFFL)<<40)|((buf[index--]&0xFFL)<<32)
+                    |((buf[index--]&0xFFL)<<24)|((buf[index--]&0xFFL)<<16)
+                    |((buf[index--]&0xFFL)<<8)|(buf[index--]&0xFFL);
+            controlTs.set(timestamp);
+        }
+
+        int index = 0;
+        boolean floatType = buf[index++]!=0;
+        int multiTouchCnt = buf[index++]&0xFF;
+        for(int i=0;i<multiTouchCnt;i++) {
+            int buttonIndex = buf[index++];
+            int action = buf[index++];
+            int absolute = buf[index++];
+
+            int bitsX = ((buf[index++] & 0xFF) << 24) | ((buf[index++] & 0xFF) << 16) | ((buf[index++] & 0xFF) << 8) | (buf[index++] & 0xFF);
+            int bitsY = ((buf[index++] & 0xFF) << 24) | ((buf[index++] & 0xFF) << 16) | ((buf[index++] & 0xFF) << 8) | (buf[index++] & 0xFF);
+            float dltX = floatType?Float.intBitsToFloat(bitsX)*screenSize.x:(bitsX*screenSize.x>>16);
+            float dltY = floatType?Float.intBitsToFloat(bitsY)*screenSize.y:(bitsY*screenSize.y>>16);
+
+            int touchType = buttonIndex & 0xf0;
+            if (touchType == 0x90 &&!inputModeManager.isActivityIndex()) {
+                continue;//键盘转换的消息,弹出输入框时丢弃
+            }
+
+            switch (action) {
+                case ACTION_DOWN:
+                    action = MotionEvent.ACTION_DOWN;
+                    lastTouchDownTime= SystemClock.uptimeMillis();
+                    break;
+                case ACTION_UP:
+                case ACTION_CANCEL:
+                    action = MotionEvent.ACTION_UP;
+                    break;
+                case ACTION_MOVE:
+                    action = MotionEvent.ACTION_MOVE;
+                    break;
+            }
+
+            PointF point = new PointF(dltX, dltY);
+            if (absolute == TOUCH_ABSOLUTE) {
+                lastPoint.set(point.x, point.y);
+            } else if (absolute == TOUCH_RELATIVE) {
+                lastPoint.offset(point.x, point.y);
+            }
+            controlUtils.injectTouch(action, buttonIndex & 0x0f, new PointF(lastPoint.x,lastPoint.y), 1.0f, 0);
+        }
+    }
+
     private void onMouseDown(final int button) {
         switch (button) {
             case  BUTTON_LEFT: {
@@ -673,6 +726,10 @@ public final class ControlTcpClient extends TcpClient{
         System.arraycopy(buffer, 8, object, 0, object.length);
 
         switch (packetType) {
+            case PACKET_TYPE_MULTITOUCH:
+                onMultiTouch(object,packetLen);
+                break;
+
             case PACKET_TYPE_TOUCH_EX:
             case PACKET_TYPE_TOUCH:
                 onTouch(object,packetLen);

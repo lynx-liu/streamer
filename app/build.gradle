@@ -25,7 +25,7 @@ android {
         }
         targetSdkVersion 33
         versionCode 5
-        versionName "1.8.14"
+        versionName "1.8.15"
     }
 
     signingConfigs {
