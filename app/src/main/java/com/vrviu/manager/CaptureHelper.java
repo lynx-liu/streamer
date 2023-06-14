@@ -29,24 +29,23 @@ public class CaptureHelper {
         SurfaceControl.setDisplaySurface(iDisplayCapture, mImageReader.getSurface(), screenRect, screenRect, 0);
     }
 
-    public byte[] screenCap(String filename) {
+    public int[] screenCap(String filename) {
         if(mImageReader==null) return null;
         Image image = mImageReader.acquireLatestImage();
         if(image==null) return null;
 
         final Image.Plane[] planes = image.getPlanes();
         final ByteBuffer buffer = planes[0].getBuffer();
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int pixelStride = planes[0].getPixelStride();
+        int rowStride = planes[0].getRowStride();
+        int rowPadding = rowStride - pixelStride * width;
+        Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
+        bitmap.copyPixelsFromBuffer(buffer);
+        bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
 
         if (filename!=null) {
-            int width = image.getWidth();
-            int height = image.getHeight();
-            int pixelStride = planes[0].getPixelStride();
-            int rowStride = planes[0].getRowStride();
-            int rowPadding = rowStride - pixelStride * width;
-            Bitmap bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888);
-            bitmap.copyPixelsFromBuffer(buffer);
-            bitmap = Bitmap.createBitmap(bitmap, 0, 0, width, height);
-
             try {
                 FileOutputStream out = new FileOutputStream(filename);
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out);
@@ -57,10 +56,10 @@ public class CaptureHelper {
             }
         }
 
-        byte[] bytes = new byte[buffer.remaining()];
-        buffer.get(bytes);
+        int[] pixels = new int[width*height];
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height);
         image.close();
-        return bytes;
+        return pixels;
     }
 
     public Point getScreenSize() {

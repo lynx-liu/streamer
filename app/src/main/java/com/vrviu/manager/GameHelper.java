@@ -146,7 +146,7 @@ public class GameHelper extends Thread{
 
             if(sceneDetect != null) {
                 if(captureHelper==null) continue;
-                byte[] buffer = captureHelper.screenCap(null);
+                int[] buffer = captureHelper.screenCap(null);
                 if(buffer==null) continue;
 
                 if(sceneDetect.detect(buffer,screenSize.x,screenSize.y)) {

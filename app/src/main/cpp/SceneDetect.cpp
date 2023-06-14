@@ -85,17 +85,16 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env,
     return !targetMat.empty();
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_detect(JNIEnv *env, jobject thiz, jbyteArray pixel, jint width, jint height) {
-    jbyte *buf = env->GetByteArrayElements(pixel, NULL);
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_detect(JNIEnv *env, jobject thiz, jintArray pixel, jint width, jint height) {
+    jint *buf = env->GetIntArrayElements(pixel, NULL);
     if (buf == NULL)
         return 0;
 
     cv::Mat imgData(height, width, CV_8UC4, buf);
-    env->ReleaseByteArrayElements(pixel, buf, 0);
+    env->ReleaseIntArrayElements(pixel, buf, 0);
 
 #if NDK_DEBUG
     char filename[MAX_INPUT] = {0};
-    cv::cvtColor(imgData, imgData, cv::COLOR_BGRA2RGBA);
     sprintf(filename,"/sdcard/Capture/%ld.jpg",systemnanotime());
     cv::imwrite(filename,imgData);
 #endif
