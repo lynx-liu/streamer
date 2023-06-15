@@ -74,13 +74,17 @@ public class GameHelper extends Thread{
             return null;
 
         try {
+            JSONArray jsonArray = null;
             for (int i = 0; i < gameinfo.length(); i++) {
                 JSONObject jsonObject = gameinfo.getJSONObject(i);
                 JSONObject screeninfo = new JSONObject(jsonObject.getString("screenSize"));
                 if(screeninfo.getInt("w")==width && screeninfo.getInt("h")==height) {
                     return new JSONArray(jsonObject.getString("event"));
+                } else if(screeninfo.getInt("w")==-1 && screeninfo.getInt("h")==-1) {
+                    jsonArray = new JSONArray(jsonObject.getString("event"));
                 }
             }
+            return jsonArray;
         } catch (JSONException e) {
             e.printStackTrace();
         }

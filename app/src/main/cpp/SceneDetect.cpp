@@ -16,7 +16,8 @@ extern "C" {
 
 cv::Mat targetMat;
 float degree = 0.8;
-cv::Rect rectROI;
+cv::Rect targetROI;
+bool autoROI = false;
 
 void _init(void) {
 }
@@ -27,12 +28,12 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期
 }
 
 long systemnanotime() {
-    timespec now;
+    timespec now = {0};
     clock_gettime(CLOCK_MONOTONIC, &now);
     return now.tv_sec * 1000 + now.tv_nsec/1000000;
 }
 
-double compare(cv::Mat gray, cv::Mat traget) {
+double compare(cv::InputArray gray, cv::InputArray traget) {
     /*
     ** 相似度计算方法
     ** 0：cv::TM_SQDIFF        平方差匹配法，最好的匹配值为0；匹配越差，匹配值越大
@@ -53,9 +54,35 @@ double compare(cv::Mat gray, cv::Mat traget) {
     return ret;
 }
 
+cv::Rect getROI(cv::Mat gray)
+{
+    cv::threshold(gray, gray, 245, 255, cv::THRESH_BINARY);
+    GaussianBlur(gray, gray, cv::Size(5, 5), 0);
+    std::vector<std::vector<cv::Point> > contours;
+    std::vector<cv::Vec4i> hierarchy;
+    contours.clear();
+    hierarchy.clear();
+    cv::findContours(gray, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    cv::Rect rect, temp;
+    unsigned int N = contours.size();
+    if (N <= 0) return rect;
+    int rarea = -1;
+    for (unsigned int i = 0; i < N; ++i)
+    {
+        temp = boundingRect(contours[i]);
+        if (temp.area() > rarea)
+        {
+            rarea = temp.area();
+            rect = temp;
+        }
+    }
+    return rect;
+}
+
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat threshold, jint roiX, jint roiY, jint roiW, jint roiH) {
     if(targetFile!= nullptr) {
-        const char* filename = env->GetStringUTFChars(targetFile, NULL);
+        const char* filename = env->GetStringUTFChars(targetFile, nullptr);
         if(filename) {
             int scale = 1;
             int flags = cv::IMREAD_REDUCED_GRAYSCALE_4;
@@ -70,14 +97,19 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env,
                     break;
             }
 
-            rectROI = cv::Rect(roiX/scale,roiY/scale,roiW/scale,roiH/scale);
             targetMat = cv::imread(filename,flags);
             equalizeHist(targetMat, targetMat);//直方图均衡化
+            autoROI = roiX==-1 && roiY==-1 && roiW==-1 && roiH==-1;
+            if(autoROI) {
+                targetROI = getROI(targetMat);
+            } else {
+                targetROI = cv::Rect(roiX/scale,roiY/scale,roiW/scale,roiH/scale);
+            }
             degree = threshold;
 #if NDEBUG
-            char filename[MAX_INPUT] = {0};
-            sprintf(filename,"/sdcard/Capture/%ld.jpg",systemnanotime());
-            cv::imwrite(filename,targetMat);
+            char picFile[MAX_INPUT] = {0};
+            sprintf(picFile,"/sdcard/Capture/%ld.jpg",systemnanotime());
+            cv::imwrite(picFile,targetMat);
 #endif
         }
         env->ReleaseStringUTFChars(targetFile, filename);
@@ -86,24 +118,32 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env,
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_detect(JNIEnv *env, jobject thiz, jintArray pixel, jint width, jint height) {
-    jint *buf = env->GetIntArrayElements(pixel, NULL);
-    if (buf == NULL)
-        return 0;
+    jint *buf = env->GetIntArrayElements(pixel, nullptr);
+    if (buf == nullptr)
+        return false;
 
     cv::Mat imgData(height, width, CV_8UC4, buf);
     env->ReleaseIntArrayElements(pixel, buf, 0);
 
-#if NDK_DEBUG
-    char filename[MAX_INPUT] = {0};
-    sprintf(filename,"/sdcard/Capture/%ld.jpg",systemnanotime());
-    cv::imwrite(filename,imgData);
-#endif
     cv::cvtColor(imgData, imgData, cv::COLOR_BGRA2GRAY);
     cv::resize(imgData,imgData,targetMat.size());
     equalizeHist(imgData, imgData);//直方图均衡化
-    if(rectROI.empty())
+    if(targetROI.empty())
         return compare(imgData,targetMat)>degree;
-    return compare(imgData(rectROI), targetMat(rectROI))>degree;
+
+    if(autoROI) {
+        cv::Rect imgROI = getROI(imgData);
+        if(imgROI.empty()) return false;
+        cv::resize(imgData(imgROI), imgData, targetROI.size());
+
+#if NDK_DEBUG
+        char filename[MAX_INPUT] = {0};
+        sprintf(filename,"/sdcard/Capture/%ld.jpg",systemnanotime());
+        cv::imwrite(filename,imgData);
+#endif
+        return compare(imgData,targetMat(targetROI))>degree;
+    }
+    return compare(imgData(targetROI), targetMat(targetROI))>degree;
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_release(JNIEnv *env, jobject thiz) {
