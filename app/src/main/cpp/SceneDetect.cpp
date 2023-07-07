@@ -16,6 +16,7 @@ extern "C" {
 
 cv::Mat targetMat;
 float degree = 0.8;
+int thresh = -1;
 cv::Rect targetROI;
 bool autoROI = false;
 
@@ -56,7 +57,6 @@ double compare(cv::InputArray gray, cv::InputArray traget) {
 
 cv::Rect getROI(cv::Mat gray)
 {
-    cv::threshold(gray, gray, 245, 255, cv::THRESH_BINARY);
     GaussianBlur(gray, gray, cv::Size(5, 5), 0);
     std::vector<std::vector<cv::Point> > contours;
     std::vector<cv::Vec4i> hierarchy;
@@ -80,7 +80,7 @@ cv::Rect getROI(cv::Mat gray)
     return rect;
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat threshold, jint roiX, jint roiY, jint roiW, jint roiH) {
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat matchDegree, jint threshold, jint roiX, jint roiY, jint roiW, jint roiH) {
     if(targetFile!= nullptr) {
         const char* filename = env->GetStringUTFChars(targetFile, nullptr);
         if(filename) {
@@ -99,13 +99,17 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env,
 
             targetMat = cv::imread(filename,flags);
             equalizeHist(targetMat, targetMat);//直方图均衡化
+
+            degree = matchDegree;
+            thresh = threshold;
+            if(thresh>0) cv::threshold(targetMat, targetMat, thresh, 255, cv::THRESH_BINARY);
+
             autoROI = roiX==-1 && roiY==-1 && roiW==-1 && roiH==-1;
             if(autoROI) {
                 targetROI = getROI(targetMat);
             } else {
                 targetROI = cv::Rect(roiX/scale,roiY/scale,roiW/scale,roiH/scale);
             }
-            degree = threshold;
 #if NDEBUG
             char picFile[MAX_INPUT] = {0};
             sprintf(picFile,"/sdcard/Capture/%ld.jpg",systemnanotime());
@@ -128,6 +132,8 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_detect(JNIEnv *en
     cv::cvtColor(imgData, imgData, cv::COLOR_BGRA2GRAY);
     cv::resize(imgData,imgData,targetMat.size());
     equalizeHist(imgData, imgData);//直方图均衡化
+    if(thresh>0) cv::threshold(imgData, imgData, thresh, 255, cv::THRESH_BINARY);
+
     if(targetROI.empty())
         return compare(imgData,targetMat)>degree;
 

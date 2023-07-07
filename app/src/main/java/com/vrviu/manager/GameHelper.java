@@ -11,8 +11,6 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
-
 public class GameHelper extends Thread{
     private int index = 0;
     private int count = 0;
@@ -124,7 +122,8 @@ public class GameHelper extends Thread{
             if(sceneDetect==null) {
                 String targetFile = JsonUtils.get(eventObject,"PIC", null);
                 if(targetFile!=null) {
-                    float threshold = (float) JsonUtils.get(eventObject, "threshold", 0.8);
+                    float degree = (float) JsonUtils.get(eventObject, "degree", 0.8);
+                    int threshold = JsonUtils.get(eventObject, "threshold", -1);
 
                     int roiX = 0, roiY = 0, roiW = 0, roiH = 0;
                     try {
@@ -139,8 +138,8 @@ public class GameHelper extends Thread{
                     }
 
                     sceneDetect = new SceneDetect();
-                    sceneDetect.init(targetFile, threshold, roiX, roiY, roiW, roiH);
-                    Log.d("llx",targetFile+", "+threshold);
+                    sceneDetect.init(targetFile, degree, threshold, roiX, roiY, roiW, roiH);
+                    Log.d("llx",targetFile+", "+degree);
                 }
             }
 
@@ -209,12 +208,8 @@ public class GameHelper extends Thread{
         }
 
         Log.d("llx",cmd);
-        try {
-            Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
-            return true;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        String result = SystemUtils.runCmd(cmd);
+        Log.d("llx", result);
         return false;
     }
 

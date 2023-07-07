@@ -58,7 +58,6 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
     public void onCreate() {
         super.onCreate();
         SystemUtils.setProperty("vrviu.version.streamer", BuildConfig.VERSION_NAME);
-        SystemUtils.AESDecryptor("UKpe1OIJ0at/TDwQjEv0kxkCORnyVzu8W+mWtaWihGxr4H+rAf1HIbGafOynuM/6ITv09fT9lB8IHAm6jkFflddbf7Ok5g0afPgXsnkVwKE=");
 
         displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
         Display display = displayManager.getDisplay(0);

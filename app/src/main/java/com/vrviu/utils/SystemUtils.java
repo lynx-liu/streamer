@@ -11,6 +11,7 @@ import android.os.IInterface;
 import android.util.Log;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -172,6 +173,29 @@ public final class SystemUtils {
             return false;
         }
         return true;
+    }
+
+    public static String runCmd(String cmd) {
+        String[] args = {"sh", "-c", cmd};
+        ProcessBuilder processBuilder = new ProcessBuilder(args);
+        InputStream inputStream = null;
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            int read = -1;
+            Process process = processBuilder.start();
+            InputStream errIs = process.getErrorStream();
+            while ((read = errIs.read()) != -1) {
+                outputStream.write(read);
+            }
+
+            inputStream = process.getInputStream();
+            while ((read = inputStream.read()) != -1) {
+                outputStream.write(read);
+            }
+            return new String(outputStream.toByteArray());
+        } catch (Exception e) {
+            return e.toString();
+        }
     }
 
     public static boolean isImageFile(String filename) {
