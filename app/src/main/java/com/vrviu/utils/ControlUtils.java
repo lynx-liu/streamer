@@ -20,6 +20,7 @@ public final class ControlUtils  {
     public static final int INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH = 2;
 
     private static final int DEVICE_ID_VIRTUAL = -1;
+    private static int DEVICE_ID_GAMEPAD = 8;
     private long lastTouchDown;
     private final InputManager inputManager;
     private final PointersState pointersState = new PointersState();
@@ -29,6 +30,7 @@ public final class ControlUtils  {
     public ControlUtils(final Context context){
         inputManager = (InputManager) context.getSystemService(Context.INPUT_SERVICE);
 
+        DEVICE_ID_GAMEPAD = getGamepadDeviceId();
         for (int i = 0; i < PointersState.MAX_POINTERS; ++i) {
             MotionEvent.PointerProperties props = new MotionEvent.PointerProperties();
             props.toolType = MotionEvent.TOOL_TYPE_FINGER;
@@ -40,6 +42,20 @@ public final class ControlUtils  {
             pointerProperties[i] = props;
             pointerCoords[i] = coords;
         }
+    }
+
+    private int getGamepadDeviceId() {
+        int[] deviceIds = InputDevice.getDeviceIds();
+        for (int deviceId : deviceIds) {
+            InputDevice dev = InputDevice.getDevice(deviceId);
+            Log.d("llx", dev.toString());
+            int sources = dev.getSources();
+            if (((sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD)
+                    || ((sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK)) {
+                return deviceId;
+            }
+        }
+        return DEVICE_ID_GAMEPAD;
     }
 
     public boolean injectTouch(int action, final long pointerId, final PointF point, final float pressure, final int buttons) {
@@ -125,6 +141,34 @@ public final class ControlUtils  {
         MotionEvent event = MotionEvent
                 .obtain(lastDownTime, eventTime, MotionEvent.ACTION_SCROLL, 1, pointerProperties, pointerCoords, 0, 0, 1f, 1f, DEVICE_ID_VIRTUAL, 0,
                         InputDevice.SOURCE_MOUSE, 0);
+        return injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC);
+    }
+
+    public boolean injectAxis(float absX, float absY, float absZ, float absRZ, float absHat0X, float absHat0Y) {
+        MotionEvent.PointerProperties props = pointerProperties[0];
+        props.clear();
+        props.id = 0;
+        props.toolType = 0;
+
+        MotionEvent.PointerCoords coords = pointerCoords[0];
+        coords.clear();
+        coords.setAxisValue(MotionEvent.AXIS_X, absX);
+        coords.setAxisValue(MotionEvent.AXIS_Y, absY);
+        coords.setAxisValue(MotionEvent.AXIS_Z, absZ);
+        coords.setAxisValue(MotionEvent.AXIS_RZ, absRZ);
+        coords.setAxisValue(MotionEvent.AXIS_HAT_X, absHat0X);
+        coords.setAxisValue(MotionEvent.AXIS_HAT_Y, absHat0Y);
+
+        MotionEvent event = MotionEvent
+                .obtain(0, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, 1, pointerProperties, pointerCoords, 0, 0, 1f, 1f, DEVICE_ID_GAMEPAD, 0,
+                        InputDevice.SOURCE_JOYSTICK, 0);
+        return injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC);
+    }
+
+    public boolean injectGamePad(int action, int keyCode) {
+        long now = SystemClock.uptimeMillis();
+        KeyEvent event = new KeyEvent(now, now, action, keyCode, 0, 0, DEVICE_ID_GAMEPAD, 0, 0,
+                InputDevice.SOURCE_KEYBOARD|InputDevice.SOURCE_GAMEPAD);
         return injectInputEvent(event, INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 

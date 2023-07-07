@@ -33,13 +33,26 @@ import java.util.concurrent.atomic.AtomicLong;
 import static android.os.FileObserver.CLOSE_WRITE;
 import static android.view.KeyEvent.KEYCODE_ALT_LEFT;
 import static android.view.KeyEvent.KEYCODE_ALT_RIGHT;
-import static android.view.KeyEvent.KEYCODE_BACK;
+import static android.view.KeyEvent.KEYCODE_BUTTON_A;
+import static android.view.KeyEvent.KEYCODE_BUTTON_B;
+import static android.view.KeyEvent.KEYCODE_BUTTON_L1;
+import static android.view.KeyEvent.KEYCODE_BUTTON_L2;
+import static android.view.KeyEvent.KEYCODE_BUTTON_R1;
+import static android.view.KeyEvent.KEYCODE_BUTTON_R2;
+import static android.view.KeyEvent.KEYCODE_BUTTON_SELECT;
+import static android.view.KeyEvent.KEYCODE_BUTTON_START;
+import static android.view.KeyEvent.KEYCODE_BUTTON_THUMBL;
+import static android.view.KeyEvent.KEYCODE_BUTTON_THUMBR;
+import static android.view.KeyEvent.KEYCODE_BUTTON_X;
+import static android.view.KeyEvent.KEYCODE_BUTTON_Y;
 import static android.view.KeyEvent.KEYCODE_CTRL_LEFT;
 import static android.view.KeyEvent.KEYCODE_CTRL_RIGHT;
-import static android.view.KeyEvent.KEYCODE_ESCAPE;
 import static android.view.KeyEvent.KEYCODE_SHIFT_LEFT;
 import static android.view.KeyEvent.KEYCODE_SHIFT_RIGHT;
+import static android.view.KeyEvent.KEYCODE_UNKNOWN;
 import static android.view.KeyEvent.KEYCODE_V;
+import static android.view.KeyEvent.KEYCODE_ESCAPE;
+import static android.view.KeyEvent.KEYCODE_BACK;
 import static android.view.KeyEvent.META_ALT_ON;
 import static android.view.KeyEvent.META_CAPS_LOCK_ON;
 import static android.view.KeyEvent.META_CTRL_ON;
@@ -65,6 +78,7 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_MOUSE_MOVE =0x08;
     private static final int TOUCH_ABSOLUTE =0x09;
     private static final int PACKET_TYPE_KEYBOARD =0x0A;
+    private static final int PACKET_TYPE_MULTI_CONTROLLER = 0x1E;
     private static final int PACKET_TYPE_MULTITOUCH = 0x21;
     private static final int PACKET_TYPE_TOUCH_EX=0x22;
     private static final int PACKET_TYPE_TOUCH=0x23;
@@ -72,18 +86,24 @@ public final class ControlTcpClient extends TcpClient{
     private static final int PACKET_TYPE_SENSOR_INFO=0x25;
     private static final int PACKET_TYPE_ROTATION = 0x26;
     private static final int PACKET_TYPE_INPUT_STRING=0x28;
+    private static final int PACKET_TYPE_CONTROL_CLOUD_IME=0x29;
     private static final int PACKET_TYPE_SCENE_MODE = 0x2A;
+    private static final int PACKET_TYPE_SWITCH_IME_TYPE=0x30;
     private static final int PACKET_TYPE_SCENE_EXT = 0x31;
     private static final int PACKET_TYPE_CLIPBOARD_DATA=0x32;
     private static final int PACKET_TYPE_SENSOR_ASK=0x33;
     private static final int PACKET_TYPE_MIC_CAMERA=0x34;
     private static final int PACKET_TYPE_OPEN_URL=0x35;
     private static final int PACKET_TYPE_OPEN_DOCUMENT=0x36;
+    private static final int PACKET_TYPE_SET_CLIPBOARD=0x36;
+    private static final int PACKET_TYPE_CLOUD_IME_MODE=0x3A;
     private static final int PACKET_TYPE_ADJUST_VOLUME=0x46;
 
     private static final byte URL_MODE = 0x01;
     private static final byte FILE_MODE = 0x02;
     private static final byte SHARE_MODE = 0x03;
+    private static final byte SHARE_MODE_EX = 0x04;
+    private static final byte FILE_MODE_EX = 0x06;
 
     private static final int ACTION_DOWN = 0x08;
     private static final int ACTION_UP = 0x09;
@@ -92,6 +112,18 @@ public final class ControlTcpClient extends TcpClient{
 
     private static final int KEYCODE_ENTER = 888;
     private static final int KEYCODE_SCREENSHOT = 999;
+
+    private static final int KEYCODE_GAMEPAD_DPAD_UP        = 0x0001;
+    private static final int KEYCODE_GAMEPAD_DPAD_DOWN      = 0x0002;
+    private static final int KEYCODE_GAMEPAD_DPAD_LEFT      = 0x0004;
+    private static final int KEYCODE_GAMEPAD_DPAD_RIGHT     = 0x0008;
+    private static final int KEYCODE_GAMEPAD_LTRIGGER       = 0x0400;
+    private static final int KEYCODE_GAMEPAD_RTRIGGER       = 0x0800;
+    private static int gamePadButtonStatus                  = 0x0000;
+    private static final int[] gamePadKeyCode = new int[]{KEYCODE_UNKNOWN,KEYCODE_UNKNOWN,KEYCODE_UNKNOWN,KEYCODE_UNKNOWN,
+            KEYCODE_BUTTON_START,KEYCODE_BUTTON_SELECT,KEYCODE_BUTTON_THUMBL,KEYCODE_BUTTON_THUMBR,
+            KEYCODE_BUTTON_L1,KEYCODE_BUTTON_R1,KEYCODE_BUTTON_L2,KEYCODE_BUTTON_R2,
+            KEYCODE_BUTTON_A,KEYCODE_BUTTON_B,KEYCODE_BUTTON_X,KEYCODE_BUTTON_Y};
 
     private static final int KEY_DOWN = 0x03;
     private static final int KEY_UP = 0x04;
@@ -416,6 +448,61 @@ public final class ControlTcpClient extends TcpClient{
         }
     }
 
+    private void onGamePad(final byte[] buf) {/*
+        int controllerNumber = ((buf[7]&0xFF)<<8)|(buf[6]&0xFF);
+        int activeGamepadMask = ((buf[9]&0xFF)<<8)|(buf[8]&0xFF);
+        int midB = ((buf[11]&0xFF)<<8)|(buf[10]&0xFF);*/
+        int buttonFlags = ((buf[13]&0xFF)<<8)|(buf[12]&0xFF);
+        int leftTrigger = buf[14]&0xFF;
+        int rightTrigger = buf[15]&0xFF;
+        short leftStickX = (short) (((buf[17]&0xFF)<<8)|(buf[16]&0xFF));
+        short leftStickY = (short) (((buf[19]&0xFF)<<8)|(buf[18]&0xFF));
+        short rightStickX = (short) (((buf[21]&0xFF)<<8)|(buf[20]&0xFF));
+        short rightStickY = (short) (((buf[23]&0xFF)<<8)|(buf[22]&0xFF));
+//        Ln.d("buttonFlags:"+String.format("0x%02X",buttonFlags)+", leftTrigger:"+String.format("0x%02X",leftTrigger)+", rightTrigger:"+String.format("0x%02X",rightTrigger)+", leftStickX:"+String.format("0x%02X",leftStickX)+", leftStickY:"+String.format("0x%02X",leftStickY)+", rightStickX:"+String.format("0x%02X",rightStickX)+", rightStickY:"+String.format("0x%02X",rightStickY));
+
+        if(leftTrigger>0) buttonFlags|=KEYCODE_GAMEPAD_LTRIGGER;
+        else buttonFlags&=(~KEYCODE_GAMEPAD_LTRIGGER);
+
+        if(rightTrigger>0) buttonFlags|=KEYCODE_GAMEPAD_RTRIGGER;
+        else buttonFlags&=(~KEYCODE_GAMEPAD_RTRIGGER);
+
+//        Ln.d(String.format("shiftFlags:0x%02X",shiftFlags));
+
+        int absHat0Y = 0;
+        if((buttonFlags&KEYCODE_GAMEPAD_DPAD_UP) == KEYCODE_GAMEPAD_DPAD_UP)
+            absHat0Y = -1;
+        else if((buttonFlags&KEYCODE_GAMEPAD_DPAD_DOWN) == KEYCODE_GAMEPAD_DPAD_DOWN) {
+            absHat0Y = 1;
+        }
+
+        int absHat0X = 0;
+        if((buttonFlags&KEYCODE_GAMEPAD_DPAD_LEFT) == KEYCODE_GAMEPAD_DPAD_LEFT)
+            absHat0X = -1;
+        else if((buttonFlags&KEYCODE_GAMEPAD_DPAD_RIGHT) == KEYCODE_GAMEPAD_DPAD_RIGHT) {
+            absHat0X = 1;
+        }
+        controlUtils.injectAxis(leftStickX, -leftStickY, rightStickX, -rightStickY, absHat0X, absHat0Y);
+        buttonFlags&=0xFFF0;
+
+        int shiftFlags = buttonFlags^gamePadButtonStatus;
+        gamePadButtonStatus = buttonFlags;
+
+        int index = 0;
+        while (shiftFlags>0) {
+            if((shiftFlags&0x01)>0) {
+                int action = (buttonFlags&0x01)>0?KeyEvent.ACTION_DOWN:KeyEvent.ACTION_UP;
+                int keycode = gamePadKeyCode[index];
+                if(keycode!=KEYCODE_UNKNOWN) {
+                    controlUtils.injectGamePad(action, gamePadKeyCode[index]);
+                }
+            }
+            shiftFlags>>=1;
+            buttonFlags>>=1;
+            index++;
+        }
+    }
+
     private boolean onTouch(final byte[] buf, int packetLen) {
         if(controlTs!=null && packetLen>=TouchPacketSize){
             int index = packetLen-1;
@@ -726,6 +813,10 @@ public final class ControlTcpClient extends TcpClient{
         System.arraycopy(buffer, 8, object, 0, object.length);
 
         switch (packetType) {
+            case PACKET_TYPE_MULTI_CONTROLLER:
+                onGamePad(object);
+                break;
+
             case PACKET_TYPE_MULTITOUCH:
                 onMultiTouch(object,packetLen);
                 break;
@@ -748,12 +839,22 @@ public final class ControlTcpClient extends TcpClient{
                 onPaste(new String(object,StandardCharsets.UTF_8));
                 break;
 
+            case PACKET_TYPE_SET_CLIPBOARD:
+                setClipboardText(new String(object,StandardCharsets.UTF_8));
+                break;
+
             case PACKET_TYPE_SENSOR_INFO:
                 onSensorInfo(object);
                 break;
 
             case PACKET_TYPE_INPUT_STRING:
                 onInputString(object);
+                break;
+
+            case PACKET_TYPE_CONTROL_CLOUD_IME:
+                break;
+
+            case PACKET_TYPE_SWITCH_IME_TYPE:
                 break;
 
             case PACKET_TYPE_MOUSE_MOVE:
