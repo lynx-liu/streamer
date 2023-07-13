@@ -295,8 +295,8 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         }
 
         controlTcpClient = new ControlTcpClient(mContext,lsIp,lsControlPort,isGameMode,downloadDir,packageName,activityMonitor,null);
-        controlTcpClient.start();
         controlTcpClient.setDisplayRotation(screenSize);
+        controlTcpClient.start();
         releaseStreaming();
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {

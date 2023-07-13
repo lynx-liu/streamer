@@ -897,6 +897,7 @@ public final class ControlTcpClient extends TcpClient{
             audioManager.registerAudioRecordingCallback(audioRecordingCallback, handler);
             cameraManager.registerAvailabilityCallback(availabilityCallback, handler);
 
+            sendRotationChanged((byte) (screenSize.x>=screenSize.y?0:1));
             sendInputModeChanged(inputModeManager.getInputMode());
 
             byte[] header = new byte[4];
