@@ -1,6 +1,5 @@
 package com.vrviu.manager;
 
-import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.provider.Settings;
@@ -21,11 +20,10 @@ public abstract class InputModeManager {
     private static ContentResolver contentResolver = null;
     private static final List<String> target_activity_list = new ArrayList<>();
     private static final List<String> special_activity_list = new ArrayList<>();
-    private static final List<String> disable_simpleInputMethod_activity_list = new ArrayList<>();
     private static final String configFile = "/data/.config/inputmode.config";
 
     private static int targetActivityIndex = 0;
-    private static boolean isPayActivity = false;
+    private static boolean bIsSpecialActivity = false;
     private int inputMode=-1;
 
     public InputModeManager(Context context, ActivityMonitor activityMonitor) {
@@ -58,10 +56,6 @@ public abstract class InputModeManager {
                         case "special_activity":
                             special_activity_list.add(arrayOfString[1]);
                             break;
-
-                        case "disable_simpleInputMethod":
-                            disable_simpleInputMethod_activity_list.add(arrayOfString[1]);
-                            break;
                     }
                 }
             }
@@ -93,37 +87,13 @@ public abstract class InputModeManager {
         return NOT_INPUT;
     }
 
-    private static boolean isPayActivity(String activity) {
-        if(activity.contains("com.alipay.sdk.app.H5PayActivity"))
-            return true;
+    private static boolean isSpecialActivity(String activity) {
         for(String special_activity : special_activity_list) {
             if(activity.contains(special_activity)) {
                 return true;
             }
         }
         return false;
-    }
-
-    private static boolean isSimpleInputNeedSwitch(String activity) {
-        for(String disable_simpleInputMethod_activity : disable_simpleInputMethod_activity_list) {
-            if(activity.contains(disable_simpleInputMethod_activity)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static void switchSimpleInputMethod(boolean disableSimpleIME) {
-        String defaultInputMethod = Settings.Secure.getString(contentResolver,Settings.Secure.DEFAULT_INPUT_METHOD);
-        if(disableSimpleIME){
-            if(defaultInputMethod.contains("com.simple.inputmethod/.SimpleInputMethodService")) {
-                Settings.Secure.putString(contentResolver,Settings.Secure.DEFAULT_INPUT_METHOD, "disableSimpleInputMethodService");
-            }
-        }else{
-            if(defaultInputMethod.contains("disableSimpleInputMethodService")){
-                Settings.Secure.putString(contentResolver,Settings.Secure.DEFAULT_INPUT_METHOD, "com.simple.inputmethod/.SimpleInputMethodService");
-            }
-        }
     }
 
     public boolean isStartInput() {
@@ -134,7 +104,11 @@ public abstract class InputModeManager {
         return "true".equalsIgnoreCase(SystemUtils.getProperty("vrviu.simpleInputMethod.enable", "false"));
     }
 
-    public void checkInputMode(){
+    public boolean isCloudIME() {
+        return 0==Integer.parseInt(SystemUtils.getProperty("vrviu.localInput.type", "1"));
+    }
+
+    public void checkInputMode() {
         int recentMode = targetActivityIndex;
         if (isStartInput()) {
             recentMode = START_INPUT;
@@ -143,21 +117,16 @@ public abstract class InputModeManager {
         if(recentMode != inputMode) {
             inputMode = recentMode;
 
-            if (recentMode == START_INPUT && isPayActivity && "1".equals(SystemUtils.getProperty("vrviu.iswebpc", "0")))
+            if (recentMode == START_INPUT && bIsSpecialActivity && "1".equals(SystemUtils.getProperty("vrviu.iswebpc", "0")))
                 return;
             onInputModeChange(inputMode);
         }
     }
 
-    private ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
-        @Override
-        public void onActivityChanged(ComponentName componentName) {
-            String topActivity = componentName.toShortString();
-            switchSimpleInputMethod(isSimpleInputNeedSwitch(topActivity));
-
-            isPayActivity = isPayActivity(topActivity);
-            targetActivityIndex = getTargetActivityIndex(topActivity);
-        }
+    private ActivityMonitor.ActivityChangeListener activityChangeListener = componentName -> {
+        String topActivity = componentName.toShortString();
+        bIsSpecialActivity = isSpecialActivity(topActivity);
+        targetActivityIndex = getTargetActivityIndex(topActivity);
     };
 
     public void Release() {

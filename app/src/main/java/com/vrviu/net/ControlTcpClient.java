@@ -1,9 +1,11 @@
 package com.vrviu.net;
 
+import android.content.BroadcastReceiver;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Point;
 import android.graphics.PointF;
 import android.hardware.camera2.CameraManager;
@@ -14,6 +16,7 @@ import android.os.Build;
 import android.os.FileObserver;
 import android.os.Handler;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -132,6 +135,9 @@ public final class ControlTcpClient extends TcpClient{
     private static final int APPEND_TEXT = 0x00;
     private static final int REPLASE_TEXT = 0x01;
 
+    private static final int LOCAL_IME = 0x00;
+    private static final int CLOUD_IME = 0x01;
+
     private static final byte NumState=0x08;
     private static final byte CapsState=0x10;
     private static final int TouchPacketSize=20;
@@ -175,6 +181,7 @@ public final class ControlTcpClient extends TcpClient{
     private final ControlUtils controlUtils;
     private ActivityMonitor activityMonitor;
     private final InputModeManager inputModeManager;
+    private InputMethodReceiver inputMethodReceiver;
     private AccessibilityNodeInfo accessibilityNodeInfo = null;
 
     public ControlTcpClient(final Context context, final String ip, final int port, final boolean isGameMode, final String downloadDir, final String packageName, ActivityMonitor activityMonitor, AtomicLong controlTs) {
@@ -203,35 +210,36 @@ public final class ControlTcpClient extends TcpClient{
                 new Thread(() -> sendInputModeChanged(mode)).start();
             }
         };
+
+        inputMethodReceiver = new InputMethodReceiver();
+        IntentFilter intentFilter = new IntentFilter(Intent.ACTION_INPUT_METHOD_CHANGED);
+        mContext.registerReceiver(inputMethodReceiver, intentFilter);
     }
 
-    ActivityMonitor.ActionChangeListener actionChangeListener = new ActivityMonitor.ActionChangeListener() {
-        @Override
-        public boolean onActionChanged(String action, String pkg) {
-            if(action!=null) {
-                Log.d("llx", "action:"+action+", pkg:"+pkg);
+    ActivityMonitor.ActionChangeListener actionChangeListener = (action, pkg) -> {
+        if(action!=null) {
+            Log.d("llx", "action:"+action+", pkg:"+pkg);
 
-                switch (action) {
-                    case Intent.ACTION_GET_CONTENT:
-                    case Intent.ACTION_PICK:
-                    case Intent.ACTION_OPEN_DOCUMENT://原神
-                        new Thread(() -> sendStartDocuments()).start();
-                        break;
+            switch (action) {
+                case Intent.ACTION_GET_CONTENT:
+                case Intent.ACTION_PICK:
+                case Intent.ACTION_OPEN_DOCUMENT://原神
+                    new Thread(() -> sendStartDocuments()).start();
+                    break;
 
-                    case Intent.ACTION_CHOOSER:
-                        break;
+                case Intent.ACTION_CHOOSER:
+                    break;
 
-                    case Intent.ACTION_VIEW:
-                        handler.post(() -> Toast.makeText(mContext, R.string.disable_browser,Toast.LENGTH_SHORT).show());
-                        return false;
+                case Intent.ACTION_VIEW:
+                    handler.post(() -> Toast.makeText(mContext, R.string.disable_browser,Toast.LENGTH_SHORT).show());
+                    return false;
 
-                    case ActivityMonitor.ACTION_REQUEST_PERMISSIONS:
-                        new Thread(() -> sendSensorAsk(new byte[]{SENSOR_TYPE_GPS})).start();
-                        break;
-                }
+                case ActivityMonitor.ACTION_REQUEST_PERMISSIONS:
+                    new Thread(() -> sendSensorAsk(new byte[]{SENSOR_TYPE_GPS})).start();
+                    break;
             }
-            return true;
         }
+        return true;
     };
 
     private boolean MonitorFiles(final Context context, final String downloadDir, final String packageName) {
@@ -315,6 +323,11 @@ public final class ControlTcpClient extends TcpClient{
 
     @Override
     public void interrupt() {
+        if(inputMethodReceiver != null) {
+            mContext.unregisterReceiver(inputMethodReceiver);
+            inputMethodReceiver = null;
+        }
+
         if(activityMonitor != null) {
             activityMonitor.removeActionChangeListener(actionChangeListener);
             activityMonitor = null;
@@ -783,6 +796,77 @@ public final class ControlTcpClient extends TcpClient{
         }
     }
 
+    private void onControlCloudIME(final byte[] buf) {
+        int command=buf[0];
+        Log.d("llx","onControlCloudIME:"+command);
+        switch (command) {
+            case 0: {
+                int length=((buf[1]&0xFF)<<8)|(buf[2]&0xFF);
+                String text = new String(buf,3,length, StandardCharsets.UTF_8);
+                Log.d("llx","text:"+text);
+
+                Intent intent = new Intent();
+                intent.setAction("com.vrviu.intent.INPUTSTRING");
+                intent.putExtra("text", text);
+                mContext.sendBroadcast(intent);
+                break;
+            }
+
+            case 1: {
+                Intent intent = new Intent();
+                intent.setAction("com.vrviu.intent.FINISHINPUT");
+                mContext.sendBroadcast(intent);
+                break;
+            }
+
+            case 2: {
+                Intent intent = new Intent();
+                intent.setAction("com.vrviu.intent.HIDESOFT");
+                mContext.sendBroadcast(intent);
+                break;
+            }
+            case 3: {
+                int keyboardHeight=((buf[1]&0xFF)<<8)|(buf[2]&0xFF);
+                Log.d("llx","keyboardHeight:"+keyboardHeight);
+                Intent intent = new Intent();
+                intent.setAction("com.vrviu.intent.SET_KEYBOARD_HEIGHT");
+                intent.putExtra("keyboardHeight", keyboardHeight);
+                mContext.sendBroadcast(intent);
+                break;
+            }
+            case 4: {
+                int keyboardHeightRatio=((buf[1]&0xFF)<<8)|(buf[2]&0xFF);
+                Log.d("llx","keyboardHeightRatio:"+keyboardHeightRatio);
+                Intent intent = new Intent();
+                intent.setAction("com.vrviu.intent.SET_KEYBOARD_HEIGHT_RATIO");
+                intent.putExtra("keyboardHeightRatio", keyboardHeightRatio);
+                mContext.sendBroadcast(intent);
+                break;
+            }
+        }
+    }
+
+    private void onSwitchIMEType(final byte[] buf) {
+        int command=buf[0];
+        Log.d("llx","onSwitchIMEType:"+command);
+        if(inputModeManager.isCloudIME())
+            return;
+
+        switch (command) {
+            case LOCAL_IME:
+                Settings.Secure.putString(mContext.getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD, "com.simple.inputmethod/.SimpleInputMethodService");
+                break;
+
+            case CLOUD_IME:
+                Intent intent = new Intent();
+                intent.setAction("com.vrviu.intent.HIDESOFT");
+                mContext.sendBroadcast(intent);
+
+                Settings.Secure.putString(mContext.getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD, "com.iflytek.inputmethod/.FlyIME");
+                break;
+        }
+    }
+
     private void onKeyBoard(final byte[] buf) {
         if(inputModeManager.isActivityIndex()){
             return;
@@ -852,9 +936,11 @@ public final class ControlTcpClient extends TcpClient{
                 break;
 
             case PACKET_TYPE_CONTROL_CLOUD_IME:
+                onControlCloudIME(object);
                 break;
 
             case PACKET_TYPE_SWITCH_IME_TYPE:
+                onSwitchIMEType(object);
                 break;
 
             case PACKET_TYPE_MOUSE_MOVE:
@@ -897,6 +983,7 @@ public final class ControlTcpClient extends TcpClient{
             audioManager.registerAudioRecordingCallback(audioRecordingCallback, handler);
             cameraManager.registerAvailabilityCallback(availabilityCallback, handler);
 
+            checkCloudInputType(mContext);
             sendRotationChanged((byte) (screenSize.x>=screenSize.y?0:1));
             sendInputModeChanged(inputModeManager.getInputMode());
 
@@ -1163,6 +1250,29 @@ public final class ControlTcpClient extends TcpClient{
         Log.d("llx","sendStartDocuments end threadID:"+Thread.currentThread().getId());
     }
 
+    private void sendCloudInputType(int type) {
+        if(dataOutputStream==null)
+            return;
+
+        int payloadByteSize = 5;
+        byte[] buf = new byte[4+payloadByteSize];
+        buf[0] = NotifyType&0xFF;
+        buf[1] = (NotifyType>>8)&0xFF;
+        buf[2] = (byte) (payloadByteSize&0xFF);
+        buf[3] = (byte) ((payloadByteSize>>8)&0xFF);
+        buf[4] = (PACKET_TYPE_CLOUD_IME_MODE>>24)&0xFF;
+        buf[5] = (PACKET_TYPE_CLOUD_IME_MODE>>16)&0xFF;
+        buf[6] = (PACKET_TYPE_CLOUD_IME_MODE>>8)&0xFF;
+        buf[7] = PACKET_TYPE_CLOUD_IME_MODE&0xFF;
+        buf[8] = (byte) type;
+        try {
+            dataOutputStream.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        Log.d("llx","sendCloudInputType: "+ type+" end, threadID:"+Thread.currentThread().getId());
+    }
+
     public void onAccessibility(AccessibilityNodeInfo nodeInfo, int eventType) {
         switch (eventType) {
             case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
@@ -1194,5 +1304,26 @@ public final class ControlTcpClient extends TcpClient{
         }
 
         return text;
+    }
+
+    private void checkCloudInputType(Context context) {
+        if(inputModeManager.isCloudIME())
+            return;
+
+        String defaultInputMethod = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
+        if(defaultInputMethod.equals("com.simple.inputmethod/.SimpleInputMethodService")) {
+            sendCloudInputType(LOCAL_IME);
+        } else if(defaultInputMethod.equals("com.iflytek.inputmethod/.FlyIME")) {
+            sendCloudInputType(CLOUD_IME);
+        }
+    }
+
+    private class InputMethodReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getAction().equals(Intent.ACTION_INPUT_METHOD_CHANGED)) {
+                checkCloudInputType(context);
+            }
+        }
     }
 }
