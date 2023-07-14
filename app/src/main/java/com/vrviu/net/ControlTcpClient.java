@@ -1312,9 +1312,9 @@ public final class ControlTcpClient extends TcpClient{
 
         String defaultInputMethod = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
         if(defaultInputMethod.equals("com.simple.inputmethod/.SimpleInputMethodService")) {
-            sendCloudInputType(LOCAL_IME);
+            new Thread(() -> sendCloudInputType(LOCAL_IME)).start();
         } else if(defaultInputMethod.equals("com.iflytek.inputmethod/.FlyIME")) {
-            sendCloudInputType(CLOUD_IME);
+            new Thread(() -> sendCloudInputType(CLOUD_IME)).start();
         }
     }
 
