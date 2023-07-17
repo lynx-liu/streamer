@@ -64,7 +64,6 @@ import static android.view.KeyEvent.META_SHIFT_ON;
 
 import com.vrviu.manager.ActivityMonitor;
 import com.vrviu.manager.InputModeManager;
-import com.vrviu.streamer.R;
 import com.vrviu.utils.ControlUtils;
 import com.vrviu.utils.SystemUtils;
 
@@ -179,12 +178,13 @@ public final class ControlTcpClient extends TcpClient{
     private final CameraManager cameraManager;
     private FileObserver fileObserver;
     private final ControlUtils controlUtils;
+    private boolean useLocalBrowser;
     private ActivityMonitor activityMonitor;
     private final InputModeManager inputModeManager;
     private InputMethodReceiver inputMethodReceiver;
     private AccessibilityNodeInfo accessibilityNodeInfo = null;
 
-    public ControlTcpClient(final Context context, final String ip, final int port, final boolean isGameMode, final String downloadDir, final String packageName, ActivityMonitor activityMonitor, AtomicLong controlTs) {
+    public ControlTcpClient(final Context context, final String ip, final int port, final boolean isGameMode, final String downloadDir, final String packageName, final boolean useLocalBrowser, ActivityMonitor activityMonitor, AtomicLong controlTs) {
         super(ip,port);
         setName(getClass().getSimpleName());
 
@@ -202,6 +202,7 @@ public final class ControlTcpClient extends TcpClient{
 
         MonitorFiles(context,downloadDir,packageName);
 
+        this.useLocalBrowser = useLocalBrowser;
         this.activityMonitor = activityMonitor;
         this.activityMonitor.addActionChangeListener(actionChangeListener);
         inputModeManager = new InputModeManager(context,activityMonitor) {
@@ -216,7 +217,8 @@ public final class ControlTcpClient extends TcpClient{
         mContext.registerReceiver(inputMethodReceiver, intentFilter);
     }
 
-    ActivityMonitor.ActionChangeListener actionChangeListener = (action, pkg) -> {
+    ActivityMonitor.ActionChangeListener actionChangeListener = (intent, pkg) -> {
+        String action = intent.getAction();
         if(action!=null) {
             Log.d("llx", "action:"+action+", pkg:"+pkg);
 
@@ -231,8 +233,13 @@ public final class ControlTcpClient extends TcpClient{
                     break;
 
                 case Intent.ACTION_VIEW:
-                    handler.post(() -> Toast.makeText(mContext, R.string.disable_browser,Toast.LENGTH_SHORT).show());
-                    return false;
+                    if(useLocalBrowser) {
+                        String url = intent.getDataString();
+                        Log.d("llx","url:"+url);
+                        if(url!=null) new Thread(() -> sendFilePath(url,URL_MODE)).start();
+                        return false;//disable browser
+                    }
+                    return true;
 
                 case ActivityMonitor.ACTION_REQUEST_PERMISSIONS:
                     new Thread(() -> sendSensorAsk(new byte[]{SENSOR_TYPE_GPS})).start();

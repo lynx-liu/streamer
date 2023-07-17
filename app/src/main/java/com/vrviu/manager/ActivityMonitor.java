@@ -43,7 +43,7 @@ public class ActivityMonitor {
     }
 
     public interface ActionChangeListener {
-        boolean onActionChanged(String action, String pkg);
+        boolean onActionChanged(Intent intent, String pkg);
     }
 
     public ActivityMonitor(Context context, Handler handler) {
@@ -77,9 +77,8 @@ public class ActivityMonitor {
             mHandler.postDelayed(runnable, delayMillis);
 
             boolean diableStart = false;
-            String action = intent.getAction();
             for (ActionChangeListener actionChangeListener:actionChangeListeners) {
-                if(!actionChangeListener.onActionChanged(action, pkg))
+                if(!actionChangeListener.onActionChanged(intent, pkg))
                     diableStart = true;
             }
 

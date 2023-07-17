@@ -88,26 +88,20 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
         }
     }
 
-    ActivityMonitor.ActivityChangeListener activityChangeListener = new ActivityMonitor.ActivityChangeListener() {
-        @Override
-        public void onActivityChanged(ComponentName componentName) {
-            String packageName = componentName.getPackageName();
-            if(gameHelper==null) {
-                createCaptureHelper(packageName);
-            } else if(!gameHelper.getPackageName().equals(packageName)) {
-                gameHelper.interrupt();
-                createCaptureHelper(packageName);
-            }
+    ActivityMonitor.ActivityChangeListener activityChangeListener = componentName -> {
+        String packageName = componentName.getPackageName();
+        if(gameHelper==null) {
+            createCaptureHelper(packageName);
+        } else if(!gameHelper.getPackageName().equals(packageName)) {
+            gameHelper.interrupt();
+            createCaptureHelper(packageName);
         }
     };
 
-    GameHelper.onSceneChangeListener sceneChangeListener = new GameHelper.onSceneChangeListener() {
-        @Override
-        public void onSceneChanged(int report) {
-            if(controlTcpClient!=null)
-                controlTcpClient.sendSceneMode(report);
-            gsmTcpServer.reportScene(report);
-        }
+    GameHelper.onSceneChangeListener sceneChangeListener = report -> {
+        if(controlTcpClient!=null)
+            controlTcpClient.sendSceneMode(report);
+        gsmTcpServer.reportScene(report);
     };
 
     @Override
@@ -281,7 +275,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
                                   int codec, String videoCodecProfile, int idrPeriod, int maxFps, int minFps, int width, int height,
                                   int bitrate, int orientationType, int enableSEI, int rateControlMode, int gameMode, String packageName,
                                   String downloadDir, RenderConfig renderConfig, int audioType, int defaulQP, int maxQP, int minQP,
-                                  String fakeVideoPath) {
+                                  boolean useLocalBrowser, String fakeVideoPath) {
         boolean isGameMode = gameMode!=NOT_IN_GAME;
 
         if(controlTcpClient!=null) {
@@ -294,7 +288,7 @@ public class StreamerService extends AccessibilityService implements VideoTcpSer
             controlTcpClient = null;
         }
 
-        controlTcpClient = new ControlTcpClient(mContext,lsIp,lsControlPort,isGameMode,downloadDir,packageName,activityMonitor,null);
+        controlTcpClient = new ControlTcpClient(mContext,lsIp,lsControlPort,isGameMode,downloadDir,packageName,useLocalBrowser,activityMonitor,null);
         controlTcpClient.setDisplayRotation(screenSize);
         controlTcpClient.start();
         releaseStreaming();
