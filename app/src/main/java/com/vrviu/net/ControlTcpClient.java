@@ -875,10 +875,6 @@ public final class ControlTcpClient extends TcpClient{
     }
 
     private void onKeyBoard(final byte[] buf) {
-        if(inputModeManager.isActivityIndex()){
-            return;
-        }
-
         int action = buf[0];
         switch (action) {
             case KEY_DOWN:
