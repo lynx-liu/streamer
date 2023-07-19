@@ -188,7 +188,7 @@ ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int
     if(defaulQP!=-1) videoParam.defaulQP = defaulQP;
     if(minQP!=-1) videoParam.minQP = minQP;
     if(maxQP!=-1) videoParam.maxQP = maxQP;
-    if(rateControlMode!=1) videoParam.bitrateMode = rateControlMode;
+    if(rateControlMode!=-1) videoParam.bitrateMode = rateControlMode;
 
     return createEncoder(muxer);
 }
