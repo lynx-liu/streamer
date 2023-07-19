@@ -44,7 +44,8 @@ public class VideoTcpServer extends TcpServer {
 
         void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl);
         void requestIdrFrame();
-        boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec);
+        boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec,
+                                  int defaulQP, int minQP, int maxQP, int rateControlMode);
     }
 
     private final Callback mCallback;
@@ -158,8 +159,19 @@ public class VideoTcpServer extends TcpServer {
         int orientation = data[10];
         int codec = data[11];
         int frameInterval = ((data[12]&0xFF)<<24)|((data[13]&0xFF)<<16)|((data[14]&0xFF)<<8)|(data[15]&0xFF);
+//        int maxBitrate = ((data[16]&0xFF)<<24)|((data[17]&0xFF)<<16)|((data[18]&0xFF)<<8)|(data[19]&0xFF);
 
-        return mCallback.reconfigureEncode(width,height,bitrate,fps,frameInterval,profile,orientation,codec);
+        int defaulQP = -1;
+        int minQP = -1;
+        int maxQP = -1;
+        int rateControlMode = -1;
+        if(data.length>20) {
+            defaulQP = data[20];
+            minQP = data[21];
+            maxQP = data[22];
+            rateControlMode = data[23];
+        }
+        return mCallback.reconfigureEncode(width,height,bitrate,fps,frameInterval,profile,orientation,codec,defaulQP,minQP,maxQP,rateControlMode);
     }
 
     private void response(final byte type, final int seqnum, final byte result) {

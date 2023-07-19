@@ -113,7 +113,8 @@ public:
                         const char *ip, int port);
     bool start();
     bool stop();
-    ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec, AMediaMuxer *muxer);
+    ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec,
+                               int defaulQP, int minQP, int maxQP, int rateControlMode, AMediaMuxer *muxer);
     bool release();
 };
 

@@ -10,6 +10,31 @@
 
 #define NDK_DEBUG   0
 
+cv::Rect getROI(cv::Mat gray)
+{
+    GaussianBlur(gray, gray, cv::Size(5, 5), 0);
+    std::vector<std::vector<cv::Point> > contours;
+    std::vector<cv::Vec4i> hierarchy;
+    contours.clear();
+    hierarchy.clear();
+    cv::findContours(gray, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+
+    cv::Rect rect, temp;
+    unsigned int N = contours.size();
+    if (N <= 0) return rect;
+    int rarea = -1;
+    for (unsigned int i = 0; i < N; ++i)
+    {
+        temp = boundingRect(contours[i]);
+        if (temp.area() > rarea)
+        {
+            rarea = temp.area();
+            rect = temp;
+        }
+    }
+    return rect;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -53,31 +78,6 @@ double compare(cv::InputArray gray, cv::InputArray traget) {
     double ret = 1.0-minValue;
     LOGI("compare: %lf", ret);
     return ret;
-}
-
-cv::Rect getROI(cv::Mat gray)
-{
-    GaussianBlur(gray, gray, cv::Size(5, 5), 0);
-    std::vector<std::vector<cv::Point> > contours;
-    std::vector<cv::Vec4i> hierarchy;
-    contours.clear();
-    hierarchy.clear();
-    cv::findContours(gray, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-    cv::Rect rect, temp;
-    unsigned int N = contours.size();
-    if (N <= 0) return rect;
-    int rarea = -1;
-    for (unsigned int i = 0; i < N; ++i)
-    {
-        temp = boundingRect(contours[i]);
-        if (temp.area() > rarea)
-        {
-            rarea = temp.area();
-            rect = temp;
-        }
-    }
-    return rect;
 }
 
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat matchDegree, jint threshold, jint roiX, jint roiY, jint roiW, jint roiH) {

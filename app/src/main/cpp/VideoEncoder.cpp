@@ -176,7 +176,8 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     return surface;
 }
 
-ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec, AMediaMuxer *muxer) {
+ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec,
+                                         int defaulQP, int minQP, int maxQP, int rateControlMode, AMediaMuxer *muxer) {
     if(codec!=-1) videoParam.videoType = static_cast<VideoType>(codec);
     if(width!=-1) videoParam.width = width;
     if(height!=-1) videoParam.height = height;
@@ -184,6 +185,11 @@ ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int
     if(fps!=-1) videoParam.maxFps = fps;
     if(frameInterval!=-1) videoParam.frameInterval = frameInterval;
     if(profile!=-1) videoParam.profile = profile;
+    if(defaulQP!=-1) videoParam.defaulQP = defaulQP;
+    if(minQP!=-1) videoParam.minQP = minQP;
+    if(maxQP!=-1) videoParam.maxQP = maxQP;
+    if(rateControlMode!=1) videoParam.bitrateMode = rateControlMode;
+
     return createEncoder(muxer);
 }
 
