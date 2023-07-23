@@ -120,6 +120,7 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt64(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, (long) (1.5*(1000000L/videoParam.maxFps+1))); // µs
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, COLOR_FormatSurface);
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, videoParam.maxFps);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_RANGE, 1);
     AMediaFormat_setInt32(videoFormat, KEY_MAX_B_FRAMES, 0);
     AMediaFormat_setInt32(videoFormat, KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 0);//disable sync frames, otherwise the mp4 will not be played
 
@@ -144,7 +145,7 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     if(videoParam.videoType==AVC) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, videoParam.profile);
     }else {
-        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, 0x01);//MediaCodecInfo.CodecProfileLevel.HEVCProfileMain
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_PROFILE, 0x2000);//MediaCodecInfo.CodecProfileLevel.HEVCProfileMain10HDR10Plus
     }
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_LEVEL, 0x200);
 
