@@ -108,12 +108,12 @@ public:
     ~VideoEncoder();
     void requestSyncFrame();
     void setVideoBitrate(int bitrate);
-    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, int codec, int profile, int frameInterval,
+    ANativeWindow* init(int width, int height, int framerate, int bitrate, int minFps, int codec, int profile, int idrPeriod,
                         int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal,
                         const char *ip, int port);
     bool start();
     bool stop();
-    ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec,
+    ANativeWindow* reconfigure(int width, int height, int bitrate, int fps, int idrPeriod, int profile, int codec,
                                int defaulQP, int minQP, int maxQP, int rateControlMode, AMediaMuxer *muxer);
     bool release();
 };

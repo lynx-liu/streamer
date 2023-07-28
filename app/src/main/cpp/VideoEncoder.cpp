@@ -64,7 +64,7 @@ void VideoEncoder::setVideoBitrate(int bitrate) {
     AMediaFormat_delete(videoFormat);
 }
 
-ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, int codec, int profile, int frameInterval,
+ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate, int minFps, int codec, int profile, int idrPeriod,
                                   int bitrateMode, int defaulQP, int maxQP, int minQP, AMediaMuxer *muxer, int8_t *tracktotal,
                                   const char *ip, int port) {
     m_sockfd = connectSocket(ip,port);
@@ -88,7 +88,7 @@ ANativeWindow* VideoEncoder::init(int width, int height, int maxFps, int bitrate
     videoParam.bitrate = bitrate;
     videoParam.minFps = minFps;
     videoParam.maxFps = maxFps;
-    videoParam.frameInterval = frameInterval;
+    videoParam.frameInterval = idrPeriod/videoParam.maxFps;
     videoParam.bitrateMode = bitrateMode;
     videoParam.profile = profile;
     videoParam.videoType = static_cast<VideoType>(codec);
@@ -177,14 +177,14 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     return surface;
 }
 
-ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int frameInterval, int profile, int codec,
+ANativeWindow* VideoEncoder::reconfigure(int width, int height, int bitrate, int fps, int idrPeriod, int profile, int codec,
                                          int defaulQP, int minQP, int maxQP, int rateControlMode, AMediaMuxer *muxer) {
     if(codec!=-1) videoParam.videoType = static_cast<VideoType>(codec);
     if(width!=-1) videoParam.width = width;
     if(height!=-1) videoParam.height = height;
     if(bitrate!=-1) videoParam.bitrate = bitrate;
     if(fps!=-1) videoParam.maxFps = fps;
-    if(frameInterval!=-1) videoParam.frameInterval = frameInterval;
+    if(idrPeriod!=-1) videoParam.frameInterval = idrPeriod/videoParam.maxFps;
     if(profile!=-1) videoParam.profile = profile;
     if(defaulQP!=-1) videoParam.defaulQP = defaulQP;
     if(minQP!=-1) videoParam.minQP = minQP;

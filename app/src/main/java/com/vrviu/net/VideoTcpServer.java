@@ -44,7 +44,7 @@ public class VideoTcpServer extends TcpServer {
 
         void stopStreaming(boolean stopVideo, boolean stopAudio, boolean stopControl);
         void requestIdrFrame();
-        boolean reconfigureEncode(int width, int height, int bitrate, int fps, int frameInterval, int profile, int orientation, int codec,
+        boolean reconfigureEncode(int width, int height, int bitrate, int fps, int idrPeriod, int profile, int orientation, int codec,
                                   int defaulQP, int minQP, int maxQP, int rateControlMode);
     }
 
@@ -158,7 +158,7 @@ public class VideoTcpServer extends TcpServer {
         int profile = data[9];
         int orientation = data[10];
         int codec = data[11];
-        int frameInterval = ((data[12]&0xFF)<<24)|((data[13]&0xFF)<<16)|((data[14]&0xFF)<<8)|(data[15]&0xFF);
+        int idrPeriod = ((data[12]&0xFF)<<24)|((data[13]&0xFF)<<16)|((data[14]&0xFF)<<8)|(data[15]&0xFF);
 //        int maxBitrate = ((data[16]&0xFF)<<24)|((data[17]&0xFF)<<16)|((data[18]&0xFF)<<8)|(data[19]&0xFF);
 
         int defaulQP = -1;
@@ -171,7 +171,7 @@ public class VideoTcpServer extends TcpServer {
             maxQP = data[22];
             rateControlMode = data[23];
         }
-        return mCallback.reconfigureEncode(width,height,bitrate,fps,frameInterval,profile,orientation,codec,defaulQP,minQP,maxQP,rateControlMode);
+        return mCallback.reconfigureEncode(width,height,bitrate,fps,idrPeriod,profile,orientation,codec,defaulQP,minQP,maxQP,rateControlMode);
     }
 
     private void response(final byte type, final int seqnum, final byte result) {

@@ -36,7 +36,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) //这个类似android的生命周期
 
 JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env, jobject thiz, int width, int height,
                                                                     int maxFps, int bitrate, int minFps, jint codec, int profile,
-                                                                    int frameInterval, int bitrateMode, int audioMimeType,
+                                                                    int idrPeriod, int bitrateMode, int audioMimeType,
                                                                     int defaulQP, int maxQP, int minQP,
                                                                     jstring _ip, jint videoPort, jint audioPort, jboolean dump) {
     pthread_mutex_lock(&mutex);
@@ -54,7 +54,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
 
     const char* ip = env->GetStringUTFChars(_ip,NULL);
     audioEncoder->init(env, audioMimeType, mMuxer, reinterpret_cast<int8_t *>(&trackTotal), ip, audioPort);
-    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, codec, profile, frameInterval, bitrateMode,
+    ANativeWindow *nativeWindow = videoEncoder->init(width, height, maxFps, bitrate, minFps, codec, profile, idrPeriod, bitrateMode,
                                                      defaulQP, maxQP, minQP, mMuxer, reinterpret_cast<int8_t *>(&trackTotal),
                                                      ip, videoPort);
     env->ReleaseStringUTFChars(_ip, ip);
@@ -67,7 +67,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
 }
 
 JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEnv *env, jobject thiz, int width, int height,
-                                                                           int bitrate, int fps, int frameInterval, int profile, int codec,
+                                                                           int bitrate, int fps, int idrPeriod, int profile, int codec,
                                                                            int defaulQP, int minQP, int maxQP, int rateControlMode) {
     pthread_mutex_lock(&mutex);
     videoEncoder->stop();
@@ -93,7 +93,7 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEn
         audioEncoder->createEncoder(mMuxer);
     }
 
-    ANativeWindow *nativeWindow = videoEncoder->reconfigure(width, height, bitrate, fps, frameInterval, profile, codec, defaulQP, minQP, maxQP, rateControlMode, mMuxer);
+    ANativeWindow *nativeWindow = videoEncoder->reconfigure(width, height, bitrate, fps, idrPeriod, profile, codec, defaulQP, minQP, maxQP, rateControlMode, mMuxer);
     pthread_mutex_unlock(&mutex);
     return ANativeWindow_toSurface(env,nativeWindow);
 }
