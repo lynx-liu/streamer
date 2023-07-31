@@ -13,7 +13,11 @@
 
 #define NAME(variable) (#variable)
 #define COLOR_FormatSurface                 0x7F000789
-#define REPEAT_FRAME_DELAY_US               50000 // repeat after 50ms
+#define COLOR_RANGE_FULL                    1
+#define COLOR_STANDARD_BT709                1
+#define COLOR_TRANSFER_SDR_VIDEO            3
+#define BITRATE_MODE_VBR                    1
+#define BITRATE_MODE_CBR                    2
 #define AMEDIACODEC_BUFFER_FLAG_KEY_FRAME   1
 
 const char PARAMETER_KEY_REQUEST_SYNC_FRAME[] = "request-sync";
@@ -117,12 +121,20 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BIT_RATE,videoParam.bitrate);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_FRAME_RATE, videoParam.maxFps);
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, videoParam.frameInterval);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_INTRA_REFRESH_PERIOD, 1000/videoParam.maxFps);
     AMediaFormat_setInt64(videoFormat, AMEDIAFORMAT_KEY_REPEAT_PREVIOUS_FRAME_AFTER, (long) (1.5*(1000000L/videoParam.maxFps+1))); // µs
     AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_FORMAT, COLOR_FormatSurface);
     AMediaFormat_setFloat(videoFormat, AMEDIAFORMAT_KEY_MAX_FPS_TO_ENCODER, videoParam.maxFps);
-    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_RANGE, 1);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_RANGE, COLOR_RANGE_FULL);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_STANDARD, COLOR_STANDARD_BT709);
+    AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_COLOR_TRANSFER, COLOR_TRANSFER_SDR_VIDEO);
     AMediaFormat_setInt32(videoFormat, KEY_MAX_B_FRAMES, 0);
     AMediaFormat_setInt32(videoFormat, KEY_PREPEND_HEADER_TO_SYNC_FRAMES, 0);//disable sync frames, otherwise the mp4 will not be played
+
+    /*0x0 is default value, internal blur enabled, external blur disabled
+    * 0x1 means dynamic external blur, blur resolution will be set after start, internal blur disabled
+    * 0x2 means disable both internal and external blur */
+    AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-blurinfo.info", 2);
 
     if(videoParam.defaulQP!=0 || videoParam.minQP!=0 || videoParam.maxQP!=0) {
         AMediaFormat_setInt32(videoFormat, "vendor.qti-ext-enc-initial-qp.qp-i", videoParam.defaulQP);
@@ -137,9 +149,9 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     }
 
     if(videoParam.bitrateMode==0) {
-        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 2);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, BITRATE_MODE_CBR);
     } else {
-        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, 1);//MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_VBR
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, BITRATE_MODE_VBR);
     }
 
     if(videoParam.videoType==AVC) {
