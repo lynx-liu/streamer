@@ -42,6 +42,7 @@ extern "C" {
 cv::Mat targetMat;
 float degree = 0.8;
 int thresh = -1;
+int dilateValue = -1;
 cv::Rect targetROI;
 bool autoROI = false;
 
@@ -80,7 +81,8 @@ double compare(cv::InputArray gray, cv::InputArray traget) {
     return ret;
 }
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat matchDegree, jint threshold, jint roiX, jint roiY, jint roiW, jint roiH) {
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat matchDegree, jint threshold,
+                                                                    jint dilate, jint roiX, jint roiY, jint roiW, jint roiH) {
     if(targetFile!= nullptr) {
         const char* filename = env->GetStringUTFChars(targetFile, nullptr);
         if(filename) {
@@ -102,7 +104,10 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env,
 
             degree = matchDegree;
             thresh = threshold;
-            if(thresh>0) cv::threshold(targetMat, targetMat, thresh, 255, cv::THRESH_BINARY);
+            if(thresh>0) cv::threshold(targetMat, targetMat, thresh&0xFF, 255, (thresh>>8)&0xFF);
+
+            dilateValue = dilate;
+            if(dilateValue>0) cv::dilate(targetMat, targetMat, cv::Mat(dilateValue,dilateValue,CV_8UC1));
 
             autoROI = roiX==-1 && roiY==-1 && roiW==-1 && roiH==-1;
             if(autoROI) {
@@ -132,7 +137,8 @@ JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_detect(JNIEnv *en
     cv::cvtColor(imgData, imgData, cv::COLOR_BGRA2GRAY);
     cv::resize(imgData,imgData,targetMat.size());
     equalizeHist(imgData, imgData);//直方图均衡化
-    if(thresh>0) cv::threshold(imgData, imgData, thresh, 255, cv::THRESH_BINARY);
+    if(thresh>0) cv::threshold(imgData, imgData, thresh&0xFF, 255, (thresh>>8)&0xFF);
+    if(dilateValue>0) cv::dilate(imgData, imgData, cv::Mat(dilateValue,dilateValue,CV_8UC1));
 
     if(targetROI.empty())
         return compare(imgData,targetMat)>degree;

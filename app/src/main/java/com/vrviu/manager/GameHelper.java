@@ -123,7 +123,8 @@ public class GameHelper extends Thread{
                 String targetFile = JsonUtils.get(eventObject,"PIC", null);
                 if(targetFile!=null) {
                     float degree = (float) JsonUtils.get(eventObject, "degree", 0.8);
-                    int threshold = JsonUtils.get(eventObject, "threshold", -1);
+                    int threshold = JsonUtils.get(eventObject, "thresh", -1);
+                    int dilate = JsonUtils.get(eventObject, "dilate", -1);
 
                     int roiX = 0, roiY = 0, roiW = 0, roiH = 0;
                     try {
@@ -138,7 +139,7 @@ public class GameHelper extends Thread{
                     }
 
                     sceneDetect = new SceneDetect();
-                    sceneDetect.init(targetFile, degree, threshold, roiX, roiY, roiW, roiH);
+                    sceneDetect.init(targetFile, degree, threshold, dilate, roiX, roiY, roiW, roiH);
                     Log.d("llx",targetFile+", "+degree);
                 }
             }

@@ -13,7 +13,8 @@
 extern "C" {
 #endif
 
-JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat matchDegree, jint threshold, jint roiX, jint roiY, jint roiW, jint roiH);
+JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_init(JNIEnv *env, jobject thiz, jstring targetFile, jfloat matchDegree, jint threshold,
+                                                                    jint dilate, jint roiX, jint roiY, jint roiW, jint roiH);
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_detect(JNIEnv *env, jobject thiz, jintArray pixel, jint width, jint height);
 JNIEXPORT jboolean JNICALL Java_com_vrviu_streamer_SceneDetect_release(JNIEnv *env, jobject thiz);
 #ifdef __cplusplus
