@@ -1,0 +1,438 @@
+{
+    "game": [
+        {
+            "package": "com.miHoYo.Yuanshen",
+            "gameinfo": [
+                {
+                    "screenSize": {
+                        "w": -1,
+                        "h": -1
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "degree": 0.85,
+                            "thresh": 257,
+                            "dilate": 5,
+                            "ROI": {
+                                "x": -1,
+                                "y": -1,
+                                "w": -1,
+                                "h": -1
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/ys_720p_01.jpg",
+                            "wait": 5000,
+                            "sh": "/data/local/tmp/GameHelper/adjust_resolution.sh"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "package": "com.tencent.tmgp.pubgmhd",
+            "gameinfo": [
+                {
+                    "screenSize": {
+                        "w": -1,
+                        "h": -1
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "retry": 65535,
+                            "degree": 0.95,
+                            "thresh": 185,
+                            "ROI": {
+                                "x": -1,
+                                "y": -1,
+                                "w": -1,
+                                "h": -1
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/hpjy_720p_00.jpg",
+                            "wait": 0,
+                            "sh": "am force-stop com.tencent.tmgp.pubgmhd"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "package": "com.netease.dwrg",
+            "gameinfo": [
+                {
+                    "screenSize": {
+                        "w": 1280,
+                        "h": 720
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_00.jpg",
+                            "sh": "input swipe 46 52 46 52 300"
+                        },
+                        {
+                            "index": 1,
+                            "ROI": {
+                                "x": 505,
+                                "y": 65,
+                                "w": 251,
+                                "h": 85
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_01.jpg",
+                            "sh": "input swipe 640 620 640 620 300"
+                        },
+                        {
+                            "index": 2,
+                            "wait": 10000,
+                            "sh": "input swipe 46 52 46 52 300"
+                        },
+                        {
+                            "index": 3,
+                            "retry": 1,
+                            "sh": "input swipe 46 52 46 52 300"
+                        },
+                        {
+                            "index": 4,
+                            "retry": 5,
+                            "degree": 0.75,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_02.jpg",
+                            "sh": "input swipe 120 600 50 550 4000"
+                        },
+                        {
+                            "index": 5,
+                            "degree": 0.7,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_03.jpg",
+                            "sh": "input swipe 730 250 730 250 300"
+                        },
+                        {
+                            "index": 6,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_04.jpg",
+                            "sh": "input swipe 1053 93 1053 93 300"
+                        },
+                        {
+                            "index": 7,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_05.jpg",
+                            "sh": "input swipe 100 350 1100 350 500"
+                        },
+                        {
+                            "index": 8,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_05.jpg",
+                            "sh": "input swipe 1040 400 1040 400 300"
+                        },
+                        {
+                            "index": 9,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_06.jpg",
+                            "sh": "input swipe 800 413 800 413 300",
+                            "report": 100
+                        },
+                        {
+                            "index": 10,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_05.jpg",
+                            "report": 200
+                        }
+                    ]
+                },
+                {
+                    "screenSize": {
+                        "w": 1920,
+                        "h": 1080
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_00.jpg",
+                            "sh": "input swipe 70 70 70 70 300"
+                        },
+                        {
+                            "index": 1,
+                            "ROI": {
+                                "x": 505,
+                                "y": 65,
+                                "w": 251,
+                                "h": 85
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_01.jpg",
+                            "sh": "input swipe 960 930 960 930 300"
+                        },
+                        {
+                            "index": 2,
+                            "wait": 10000,
+                            "sh": "input swipe 70 70 70 70 300"
+                        },
+                        {
+                            "index": 3,
+                            "retry": 1,
+                            "sh": "input swipe 70 70 70 70 300"
+                        },
+                        {
+                            "index": 4,
+                            "retry": 5,
+                            "degree": 0.75,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_02.jpg",
+                            "sh": "input swipe 180 900 75 825 4000"
+                        },
+                        {
+                            "index": 5,
+                            "degree": 0.7,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_03.jpg",
+                            "sh": "input swipe 1095 375 1095 375 300"
+                        },
+                        {
+                            "index": 6,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_04.jpg",
+                            "sh": "input swipe 1580 140 1580 140 300"
+                        },
+                        {
+                            "index": 7,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_05.jpg",
+                            "sh": "input swipe 150 525 1650 525 500"
+                        },
+                        {
+                            "index": 8,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_05.jpg",
+                            "sh": "input swipe 1560 600 1560 600 300"
+                        },
+                        {
+                            "index": 9,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_06.jpg",
+                            "sh": "input swipe 1200 620 1200 620 300",
+                            "report": 100
+                        },
+                        {
+                            "index": 10,
+                            "PIC": "/data/local/tmp/GameHelper/dwrg_720p_05.jpg",
+                            "report": 200
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "package": "com.lilithgame.isoland2.cn",
+            "gameinfo": [
+                {
+                    "screenSize": {
+                        "w": 1280,
+                        "h": 720
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "PIC": "/data/local/tmp/GameHelper/msd_720p_00.jpg",
+                            "sh": "input swipe 960 410 960 410 300"
+                        },
+                        {
+                            "index": 1,
+                            "PIC": "/data/local/tmp/GameHelper/msd_720p_01.jpg",
+                            "sh": "input swipe 480 440 480 440 300",
+                            "report": 100
+                        },
+                        {
+                            "index": 2,
+                            "PIC": "/data/local/tmp/GameHelper/msd_720p_02.jpg",
+                            "report": 200
+                        }
+                    ]
+                },
+                {
+                    "screenSize": {
+                        "w": 1920,
+                        "h": 1080
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "PIC": "/data/local/tmp/GameHelper/msd_720p_00.jpg",
+                            "sh": "input swipe 1440 615 1440 615 300"
+                        },
+                        {
+                            "index": 1,
+                            "PIC": "/data/local/tmp/GameHelper/msd_720p_01.jpg",
+                            "sh": "input swipe 720 660 720 660 300",
+                            "report": 100
+                        },
+                        {
+                            "index": 2,
+                            "PIC": "/data/local/tmp/GameHelper/msd_720p_02.jpg",
+                            "report": 200
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "package": "com.lilithgames.mrpumpkin2.cn",
+            "gameinfo": [
+                {
+                    "screenSize": {
+                        "w": 1280,
+                        "h": 720
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_00.jpg",
+                            "sh": "input swipe 510 400 510 400 300"
+                        },
+                        {
+                            "index": 1,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_01.jpg",
+                            "sh": "input swipe 520 420 520 420 300"
+                        },
+                        {
+                            "index": 2,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_02.jpg",
+                            "sh": "input swipe 640 360 640 360 150"
+                        },
+                        {
+                            "index": 3,
+                            "wait": 150,
+                            "sh": "input swipe 1215 685 1215 685 300"
+                        },
+                        {
+                            "index": 4,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_03.jpg",
+                            "report": 100
+                        },
+                        {
+                            "index": 5,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_04.jpg",
+                            "report": 200
+                        }
+                    ]
+                },
+                {
+                    "screenSize": {
+                        "w": 1920,
+                        "h": 1080
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_00.jpg",
+                            "sh": "input swipe 765 600 765 600 300"
+                        },
+                        {
+                            "index": 1,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_01.jpg",
+                            "sh": "input swipe 780 630 780 630 300"
+                        },
+                        {
+                            "index": 2,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_02.jpg",
+                            "sh": "input swipe 960 720 960 720 150"
+                        },
+                        {
+                            "index": 3,
+                            "wait": 150,
+                            "sh": "input swipe 1822 1027 1822 1027 300"
+                        },
+                        {
+                            "index": 4,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_03.jpg",
+                            "report": 100
+                        },
+                        {
+                            "index": 5,
+                            "PIC": "/data/local/tmp/GameHelper/ngxs_720p_04.jpg",
+                            "report": 200
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "package": "com.hlwhx.hlw.jrtt.gwb",
+            "gameinfo": [
+                {
+                    "screenSize": {
+                        "w": 1280,
+                        "h": 720
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "degree": 0.9,
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_00.jpg",
+                            "report": 101
+                        },
+                        {
+                            "index": 1,
+                            "degree": 0.97,
+                            "ROI": {
+                                "x": 280,
+                                "y": 57,
+                                "w": 724,
+                                "h": 621
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_01.jpg",
+                            "report": 102
+                        },
+                        {
+                            "index": 2,
+                            "degree": 0.95,
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_02.jpg",
+                            "report": 103
+                        },
+                        {
+                            "index": 3,
+                            "degree": 0.9,
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_03.jpg",
+                            "report": 104
+                        }
+                    ]
+                },
+                {
+                    "screenSize": {
+                        "w": -1,
+                        "h": -1
+                    },
+                    "event": [
+                        {
+                            "index": 0,
+                            "thresh": 245,
+                            "ROI": {
+                                "x": -1,
+                                "y": -1,
+                                "w": -1,
+                                "h": -1
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_00.jpg",
+                            "report": 101
+                        },
+                        {
+                            "index": 1,
+                            "thresh": 245,
+                            "ROI": {
+                                "x": -1,
+                                "y": -1,
+                                "w": -1,
+                                "h": -1
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_01.jpg",
+                            "report": 102
+                        },
+                        {
+                            "index": 2,
+                            "thresh": 245,
+                            "ROI": {
+                                "x": -1,
+                                "y": -1,
+                                "w": -1,
+                                "h": -1
+                            },
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_02.jpg",
+                            "report": 103
+                        },
+                        {
+                            "index": 3,
+                            "degree": 0.7,
+                            "PIC": "/data/local/tmp/GameHelper/hlw_720p_03.jpg",
+                            "report": 104
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
