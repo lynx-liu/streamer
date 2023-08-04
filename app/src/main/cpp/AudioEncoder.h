@@ -25,7 +25,7 @@
 #define CHANNEL_COUNT           2
 #define ENCODING_PCM_16BIT      2
 #define REMOTE_SUBMIX           8
-#define SAMPLE_RATE             16000
+#define SAMPLE_RATE             48000
 
 #define AUDIO_PCM               0
 #define AUDIO_OPUS              1
