@@ -95,9 +95,6 @@ public class VideoTcpServer extends TcpServer {
             String packageName = JsonUtils.get(jsonObject, "packageName", null);
             String downloadDir = JsonUtils.get(jsonObject, "downloadDir", null);
             renderConfig.sharp = (float) JsonUtils.get(jsonObject, "sharp",0.0);
-            renderConfig.brightness = JsonUtils.get(jsonObject, "brightness", 0);
-            renderConfig.contrast = JsonUtils.get(jsonObject, "contrast", 0);
-            renderConfig.saturation = JsonUtils.get(jsonObject, "saturation", 0);
             renderConfig.showText = JsonUtils.get(jsonObject, "showText", 0)!=0;
             int audioType = JsonUtils.get(jsonObject, "audioType", 0);
             int defaulQP = JsonUtils.get(jsonObject, "defaulQP", 0);
@@ -105,6 +102,14 @@ public class VideoTcpServer extends TcpServer {
             int minQP = JsonUtils.get(jsonObject, "minQP", 0);
             boolean useLocalBrowser = JsonUtils.get(jsonObject, "useLocalBrowser", 0)!=0;
             String fakeVideoPath = JsonUtils.get(jsonObject, "fakeVideoPath", null);
+
+            String startupArgs = JsonUtils.get(jsonObject, "startupArgs", null);
+            if(startupArgs!=null) {
+                JSONObject startupArgsObject = new JSONObject(startupArgs);
+                renderConfig.brightness = JsonUtils.get(startupArgsObject, "brightness", 0);
+                renderConfig.contrast = JsonUtils.get(startupArgsObject, "contrast", 0);
+                renderConfig.saturation = JsonUtils.get(startupArgsObject, "saturation", 0);
+            }
 
             String viewName = JsonUtils.get(jsonObject,"viewName",null);
             if(viewName!=null && !viewName.trim().isEmpty()) {
