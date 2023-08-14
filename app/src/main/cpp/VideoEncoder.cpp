@@ -151,7 +151,7 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     if(videoParam.bitrateMode==0) {
         AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, BITRATE_MODE_CBR);
     } else {
-        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, BITRATE_MODE_VBR);
+        AMediaFormat_setInt32(videoFormat, AMEDIAFORMAT_KEY_BITRATE_MODE, videoParam.bitrateMode);
     }
 
     if(videoParam.videoType==AVC) {
