@@ -112,7 +112,8 @@ ANativeWindow* VideoEncoder::createEncoder(AMediaMuxer *muxer) {
     }
 
     timeoutUs = videoParam.minFps>0? 1000000L/videoParam.minFps : -1;
-    const char *VIDEO_MIME = videoParam.videoType==AVC?"video/avc":"video/hevc";
+    const char *MimeType[] = {"video/avc","video/hevc","video/x-vnd.on2.vp8","video/x-vnd.on2.vp9"};
+    const char *VIDEO_MIME = MimeType[videoParam.videoType];
 
     AMediaFormat *videoFormat = AMediaFormat_new();
     AMediaFormat_setString(videoFormat, AMEDIAFORMAT_KEY_MIME, VIDEO_MIME);

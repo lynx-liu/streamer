@@ -16,6 +16,7 @@ int fd = 0;
 pthread_mutex_t mutex;
 uint8_t trackTotal = 0;
 AMediaMuxer *mMuxer = NULL;
+OutputFormat format = AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4;
 AudioEncoder *audioEncoder = new AudioEncoder();
 VideoEncoder *videoEncoder = new VideoEncoder();
 
@@ -42,12 +43,13 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_init(JNIEnv *env,
     pthread_mutex_lock(&mutex);
     if(dump) {
         char filename[NAME_MAX] = {0};
-        sprintf(filename,"/sdcard/DCIM/%d.mp4",currentTimeMillis());
+        format = codec>HEVC?AMEDIAMUXER_OUTPUT_FORMAT_WEBM:AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4;
+        sprintf(filename,"/sdcard/DCIM/%d.%s",currentTimeMillis(),format==AMEDIAMUXER_OUTPUT_FORMAT_WEBM?"webm":"mp4");
         fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
         if (!fd) {
             LOGE("open media file failed-->%d", fd);
         } else {
-            mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
+            mMuxer = AMediaMuxer_new(fd, format);
             AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
         }
     }
@@ -83,10 +85,11 @@ JNIEXPORT jobject JNICALL Java_com_vrviu_streamer_MediaEncoder_reconfigure(JNIEn
         if(fd) {
             close(fd);
             char filename[NAME_MAX] = {0};
-            sprintf(filename,"/sdcard/DCIM/%d.mp4",currentTimeMillis());
+            if(codec!=-1) format = codec>HEVC?AMEDIAMUXER_OUTPUT_FORMAT_WEBM:AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4;
+            sprintf(filename,"/sdcard/DCIM/%d.%s",currentTimeMillis(),format==AMEDIAMUXER_OUTPUT_FORMAT_WEBM?"webm":"mp4");
             fd = open(filename, O_CREAT | O_LARGEFILE | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR);
 
-            mMuxer = AMediaMuxer_new(fd, AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
+            mMuxer = AMediaMuxer_new(fd, format);
             AMediaMuxer_setOrientationHint(mMuxer, 0); //旋转角度
         }
 

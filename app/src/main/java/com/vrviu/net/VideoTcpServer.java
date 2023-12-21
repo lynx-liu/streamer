@@ -80,6 +80,7 @@ public class VideoTcpServer extends TcpServer {
             int lsAudioPort = JsonUtils.get(jsonObject, "lsAudioPort", -1);//51897
             int lsControlPort = JsonUtils.get(jsonObject, "lsControlPort", -1);//5000
             int codec = JsonUtils.get(jsonObject, "codec", "h264").equals("h264")?AVC:HEVC;
+            int videoCodec = JsonUtils.get(jsonObject, "videoCodec", -1);
             String videoCodecProfile = JsonUtils.get(jsonObject, "videoCodecProfile", "baseline");
             int idrPeriod = JsonUtils.get(jsonObject, "idrPeriod", 3600);
             int maxFps = JsonUtils.get(jsonObject, "maxFps", 30);
@@ -124,8 +125,9 @@ public class VideoTcpServer extends TcpServer {
                 });
             }
 
+            if(videoCodec<0) videoCodec = codec;
             return mCallback.startStreaming(flowId,lsIp,lsAVProtocol.equals("tcp"),lsVideoPort,lsAudioPort,lsControlPort,
-                    codec,videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType, enableSEI,
+                    videoCodec,videoCodecProfile,idrPeriod,maxFps,minFps,width,height,bitrate,orientationType, enableSEI,
                     rateControlMode,gameMode,packageName,downloadDir,renderConfig,audioType,defaulQP,maxQP,minQP,
                     useLocalBrowser,fakeVideoPath);
         } catch (Exception e) {

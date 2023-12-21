@@ -24,7 +24,9 @@ inline int32_t systemmilltime();
 
 enum VideoType {
     AVC,
-    HEVC
+    HEVC,
+    VP8,
+    VP9
 };
 
 #pragma pack(push)
