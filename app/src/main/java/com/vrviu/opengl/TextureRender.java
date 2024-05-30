@@ -41,6 +41,9 @@ public  class TextureRender {
                 "uniform samplerExternalOES uTexture;\n"+
                 "uniform vec2 mTextureSize;\n"+
                 "uniform float sharpLevel;\n"+
+                "uniform float uBrightness;\n" +
+                "uniform float uContrast;\n" +
+                "uniform float uSaturation;\n" +
                 "void main() {\n"+
                 "    vec2 offset0 = vec2(1.0, 1.0) / mTextureSize;\n"+
                 "    vec2 offset1 = vec2(0.0, 1.0) / mTextureSize;\n"+
@@ -55,8 +58,13 @@ public  class TextureRender {
                 "    vec4 cTemp6 = texture2D(uTexture, vTextureCoord - offset2);\n"+
                 "    vec4 cTemp7 = texture2D(uTexture, vTextureCoord - offset1);\n"+
                 "    vec4 cTemp8 = texture2D(uTexture, vTextureCoord - offset0);\n"+
-                "    vec4 sum = cTemp4 + (cTemp4-(cTemp0+cTemp2+cTemp6+cTemp8+(cTemp1+cTemp3+cTemp5+cTemp7)*2.0+cTemp4*4.0)/16.0)*sharpLevel;\n"+
-                "    gl_FragColor = vec4(sum.rgb, 1.0);\n"+
+                "    vec4 texColor = cTemp4 + (cTemp4-(cTemp0+cTemp2+cTemp6+cTemp8+(cTemp1+cTemp3+cTemp5+cTemp7)*2.0+cTemp4*4.0)/16.0)*sharpLevel;\n"+
+                "\n"+
+                "    texColor.rgb += uBrightness;\n" +
+                "    texColor.rgb = (texColor.rgb - 0.5) * max(uContrast, 0.0) + 0.5;\n" +
+                "    float luminance = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));\n" +
+                "    texColor.rgb = mix(vec3(luminance), texColor.rgb, uSaturation);\n" +
+                "    gl_FragColor = vec4(texColor.rgb, 1.0);\n"+
                 "}\n";
 
     private int mProgram;
@@ -66,11 +74,25 @@ public  class TextureRender {
     private int mSharpHandle;
     private int mTextureSizeHandle;
     private float mSharpLevel;
+    private int mBrightnessHandle;
+    private float mBrightnessValue;
+    private int mContrastHandle;
+    private float mContrastValue;
+    private int mSaturationHandle;
+    private float mSaturationValue;
     private FloatBuffer TEXTURE_SIZE;
 
-    public TextureRender(int texture, int width, int height, float sharpLevel) {
+    /*
+        brightness：亮度调整参数，取值范围为[-1.0, 1.0]，其中-1.0表示将图像变暗，1.0表示将图像变亮，0.0表示不进行亮度调整。
+        contrast：对比度调整参数，取值范围为[0.0, 2.0]，其中0.0表示将图像变成灰色，1.0表示不进行对比度调整，大于1.0表示增强对比度。
+        saturation：饱和度调整参数，取值范围为[0.0, 2.0]，其中0.0表示将图像变成灰色，1.0表示不进行饱和度调整，大于1.0表示增强饱和度，小于1.0表示降低饱和度。
+    */
+    public TextureRender(int texture, int width, int height, float sharpLevel, float brightness, float contrast, float saturation) {
         mTextureID = texture;
         mSharpLevel = sharpLevel;
+        mBrightnessValue = brightness;
+        mContrastValue = contrast;
+        mSaturationValue = saturation;
         TEXTURE_SIZE = GlUtil.createFloatBuffer(new float[]{width,height});
 
         mProgram = GlUtil.createProgram(VERTEX_SHADER, FRAGMENT_SHADER);
@@ -79,6 +101,9 @@ public  class TextureRender {
             maTextureHandle = GLES20.glGetAttribLocation(mProgram, "aTextureCoord");
             mSharpHandle = GLES20.glGetUniformLocation(mProgram, "sharpLevel");
             mTextureSizeHandle = GLES20.glGetUniformLocation(mProgram, "mTextureSize");
+            mBrightnessHandle = GLES20.glGetUniformLocation(mProgram, "uBrightness");
+            mContrastHandle = GLES20.glGetUniformLocation(mProgram, "uContrast");
+            mSaturationHandle = GLES20.glGetUniformLocation(mProgram, "uSaturation");
         }
     }
 
@@ -101,6 +126,9 @@ public  class TextureRender {
 
         GLES20.glUniform1f(mSharpHandle, mSharpLevel);
         GLES20.glUniform2fv(mTextureSizeHandle, 1, TEXTURE_SIZE);
+        GLES20.glUniform1f(mBrightnessHandle, mBrightnessValue);
+        GLES20.glUniform1f(mContrastHandle, mContrastValue);
+        GLES20.glUniform1f(mSaturationHandle, mSaturationValue);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);

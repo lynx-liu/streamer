@@ -12,7 +12,6 @@ import com.vrviu.opengl.gltext.TextRenderer;
 public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
     private EglWindow eglWindow;
     private TextureRender mTextureRender;
-    private HSBRender hsbRender;
     private int mTextureID = -1;
     private TextRenderer mTextRenderer;
     private SurfaceTexture mSurfaceTexture;
@@ -37,20 +36,16 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         mSurfaceTexture.setDefaultBufferSize(width, height);
         mSurfaceTexture.setOnFrameAvailableListener(this, handler);
 
-        if(config.sharp>0) {
-            mTextureRender = new TextureRender(mTextureID, width, height, config.sharp);
-        }
-
-        if(mTextureRender==null || config.contrast!=0 || config.brightness!=0 || config.saturation!=0) {
+        if(config.sharp>0 || config.contrast!=0 || config.brightness!=0 || config.saturation!=0 || config.showText) {
             float brightness = config.brightness/100.0f;
             float contrast = config.contrast/100.0f+1.0f;
             float saturation = config.saturation/100.0f+1.0f;
             Log.d("llx","B: "+brightness+", C: "+contrast+", S: "+saturation);
-            hsbRender = new HSBRender(mTextureID,brightness,contrast,saturation);
-        }
+            mTextureRender = new TextureRender(mTextureID, width, height, config.sharp, brightness, contrast, saturation);
 
-        if(config.showText) {
-            mTextRenderer = new TextRenderer(context, width, height);
+            if(config.showText) {
+                mTextRenderer = new TextRenderer(context, width, height);
+            }
         }
     }
 
@@ -102,7 +97,6 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
             mLastRefreshTime = currentTime;
 
             if(mTextureRender!=null) mTextureRender.drawFrame();
-            if(hsbRender!=null) hsbRender.drawFrame();
             if(mTextRenderer!=null) {
                 mTextRenderer.drawText(String.valueOf(currentTime));
             }
@@ -121,11 +115,6 @@ public class EGLRender implements SurfaceTexture.OnFrameAvailableListener {
         if(mTextureID!=-1) {
             GLES20.glDeleteTextures(1, new int[]{mTextureID}, 0);
             mTextureID = -1;
-        }
-
-        if(hsbRender!=null) {
-            hsbRender.release();
-            hsbRender = null;
         }
 
         if(mTextureRender!=null) {
